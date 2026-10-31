@@ -1,5 +1,5 @@
 import React from 'react'
-import { Play, Heart, Trash2, Plus } from 'lucide-react'
+import { Play, Heart, Trash2, Plus, ListMusic } from 'lucide-react'
 import { Track, Playlist } from '../services/YouTubeMusicService'
 import { AudioPlayerService } from '../services/AudioPlayerService'
 
@@ -142,23 +142,52 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
               <div
                 key={pl.id}
                 onClick={() => onSelectPlaylist(pl)}
-                className="p-4 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 cursor-pointer transition flex items-center justify-between group"
+                className="p-3.5 rounded-2xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 cursor-pointer transition flex items-center justify-between group"
               >
-                <div className="min-w-0">
-                  <h4 className="text-sm font-semibold text-zinc-100 group-hover:text-orange-400 truncate">
-                    {pl.name}
-                  </h4>
-                  <p className="text-xs text-zinc-400 mt-1">{pl.tracks.length} Lagu</p>
+                <div className="flex items-center space-x-3 min-w-0 flex-1 pr-2">
+                  {pl.tracks.length > 0 && pl.tracks[0].thumbnailUrl ? (
+                    <img
+                      src={pl.tracks[0].thumbnailUrl}
+                      alt={pl.name}
+                      className="w-12 h-12 rounded-xl object-cover bg-zinc-800 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center flex-shrink-0">
+                      <ListMusic className="w-5 h-5 text-orange-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-semibold text-zinc-100 group-hover:text-orange-400 truncate">
+                      {pl.name}
+                    </h4>
+                    <p className="text-xs text-zinc-400 mt-0.5">{pl.tracks.length} Lagu</p>
+                  </div>
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDeletePlaylist(pl.id)
-                  }}
-                  className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center space-x-1 flex-shrink-0">
+                  {pl.tracks.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        AudioPlayerService.playTrack(pl.tracks[0], pl.tracks)
+                      }}
+                      className="p-2 rounded-xl bg-white/5 hover:bg-orange-600 hover:text-white text-zinc-300 transition"
+                      title="Putar Playlist"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDeletePlaylist(pl.id)
+                    }}
+                    className="p-2 rounded-xl text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition"
+                    title="Hapus Playlist"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

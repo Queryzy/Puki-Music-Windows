@@ -1,4 +1,5 @@
 import { Track, Playlist } from './YouTubeMusicService'
+import { DownloadEngineService } from './DownloadEngineService'
 
 export interface SyncSettings {
   relayUrl: string
@@ -16,6 +17,12 @@ export interface OutboxItem {
   device_type: 'windows'
   timestamp: number
   data: any
+}
+
+export interface TopArtist {
+  name: string
+  count: number
+  avatarUrl?: string
 }
 
 export function normalizeTrack(raw: any): Track {
@@ -39,7 +46,8 @@ export function normalizeTrack(raw: any): Track {
     title: String(raw?.title || 'Unknown Title'),
     artist: String(raw?.artist || 'Unknown Artist'),
     durationSeconds: Number(durationSeconds),
-    thumbnailUrl: String(raw?.thumbnailUrl || raw?.coverUrl || '')
+    thumbnailUrl: String(raw?.thumbnailUrl || raw?.coverUrl || ''),
+    likedAt: typeof raw?.likedAt === 'number' ? raw.likedAt : undefined
   }
 }
 
@@ -101,11 +109,13 @@ export class LocalMusicStore {
     localStorage.setItem(this.KEY_OUTBOX, JSON.stringify(list))
   }
 
-  // ── Favorites ──────────────────────────────────────────────
+  // ── Favorites (Deterministik Waktu Like) ────────────────────
   static getFavorites(): Track[] {
     try {
       const raw = localStorage.getItem(this.KEY_FAVORITES)
-      return raw ? JSON.parse(raw) : []
+      const list: Track[] = raw ? JSON.parse(raw) : []
+      // Selalu sort deterministik: terbaru selalu di atas
+      return list.sort((a, b) => (b.likedAt || 0) - (a.likedAt || 0))
     } catch {
       return []
     }
@@ -127,6 +137,7 @@ export class LocalMusicStore {
       list.splice(index, 1)
       isFav = false
     } else {
+      cleanTrack.likedAt = Date.now()
       list.unshift(cleanTrack)
       isFav = true
     }
@@ -138,6 +149,12 @@ export class LocalMusicStore {
         isLiked: isFav,
         track: cleanTrack
       })
+
+      // Jika autoDownloadFavorites aktif dan di-like, masukkan ke antrean download
+      const settings = this.getSettings()
+      if (isFav && settings.autoDownloadFavorites) {
+        DownloadEngineService.queueTrack(cleanTrack)
+      }
     }
 
     this.notify()
@@ -263,6 +280,32 @@ export class LocalMusicStore {
     this.notify()
   }
 
+  // ── Top Artists Behavioral Affinity ────────────────────────
+  static getUserTopArtists(limit: number = 6): TopArtist[] {
+    const history = this.getHistory()
+    const favorites = this.getFavorites()
+    const artistCounts = new Map<string, { count: number; avatarUrl?: string }>()
+
+    const ingest = (t: Track, weight: number) => {
+      const name = t.artist?.trim()
+      if (!name || name.toLowerCase() === 'unknown artist') return
+      const current = artistCounts.get(name) || { count: 0, avatarUrl: t.thumbnailUrl }
+      artistCounts.set(name, {
+        count: current.count + weight,
+        avatarUrl: current.avatarUrl || t.thumbnailUrl
+      })
+    }
+
+    history.forEach(t => ingest(t, 2))
+    favorites.forEach(t => ingest(t, 3))
+
+    const sorted = Array.from(artistCounts.entries())
+      .map(([name, data]) => ({ name, count: data.count, avatarUrl: data.avatarUrl }))
+      .sort((a, b) => b.count - a.count)
+
+    return sorted.slice(0, limit)
+  }
+
   // ── Sync Engine Remote Batch Processor ─────────────────────
   static applySyncBatch(events: Array<{ action: string; data: any; timestamp?: number }>) {
     let favs = this.getFavorites()
@@ -286,6 +329,7 @@ export class LocalMusicStore {
 
         const isLiked = d.isLiked !== undefined ? Boolean(d.isLiked) : true
         const idx = favs.findIndex(t => t.id === track.id)
+        track.likedAt = d.likedAt || ev.timestamp || Date.now()
 
         if (isLiked) {
           if (idx >= 0) {
@@ -302,6 +346,7 @@ export class LocalMusicStore {
         }
       } else if (action === 'FAVORITE_ADD') {
         const track = normalizeTrack(d.track || d)
+        track.likedAt = d.likedAt || ev.timestamp || Date.now()
         if (track.id && !favs.some(t => t.id === track.id)) {
           favs.unshift(track)
           changed = true
@@ -377,9 +422,22 @@ export class LocalMusicStore {
     }
 
     if (changed) {
+      favs.sort((a, b) => (b.likedAt || 0) - (a.likedAt || 0))
       localStorage.setItem(this.KEY_FAVORITES, JSON.stringify(favs))
       localStorage.setItem(this.KEY_PLAYLISTS, JSON.stringify(playlists))
       localStorage.setItem(this.KEY_HISTORY, JSON.stringify(history))
+
+      // Trigger Auto-Download di background jika setting aktif
+      const settings = this.getSettings()
+      if (settings.autoDownloadFavorites && favs.length > 0) {
+        DownloadEngineService.queueBatch(favs)
+      }
+      if (settings.autoDownloadPlaylists && playlists.length > 0) {
+        for (const pl of playlists) {
+          DownloadEngineService.queueBatch(pl.tracks)
+        }
+      }
+
       this.notify()
     }
   }
@@ -405,6 +463,19 @@ export class LocalMusicStore {
     const current = this.getSettings()
     const updated = { ...current, ...settings }
     localStorage.setItem(this.KEY_SETTINGS, JSON.stringify(updated))
+
+    // Jika auto-download baru saja diaktifkan, langsung serap lagu favorit ke queue
+    if (!current.autoDownloadFavorites && updated.autoDownloadFavorites) {
+      const favs = this.getFavorites()
+      DownloadEngineService.queueBatch(favs)
+    }
+    if (!current.autoDownloadPlaylists && updated.autoDownloadPlaylists) {
+      const pls = this.getPlaylists()
+      for (const pl of pls) {
+        DownloadEngineService.queueBatch(pl.tracks)
+      }
+    }
+
     this.notify()
   }
 

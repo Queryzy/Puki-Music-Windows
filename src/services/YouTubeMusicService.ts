@@ -5,6 +5,7 @@ export interface Track {
   durationSeconds: number
   thumbnailUrl: string
   streamUrl?: string
+  likedAt?: number
 }
 
 export interface Album {

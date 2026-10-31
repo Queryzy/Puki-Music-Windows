@@ -335,12 +335,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4 text-xs divide-y divide-white/[0.03]">
           <div className="pt-2 space-y-1.5">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-orange-400">v1.0.3</span>
+              <span className="font-bold text-orange-400">v1.0.4</span>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
                 Terbaru
               </span>
             </div>
             <ul className="list-disc list-inside text-zinc-300 space-y-1">
+              <li><strong>OmniSource Deezer Resolver:</strong> Mengurai dan memutar katalog Deezer (<code>dz_...</code>) seperti <em>This Side of Paradise - Coyote Theory</em> secara transparan dengan caching lokal.</li>
+              <li><strong>Behavioral Home Dashboard:</strong> Beranda dinamis dengan carousel artis favorit (affinity analysis), filter chips (Semua, Mix Pribadi, Favorit), dan rekomendasi pintar 1:1 mobile.</li>
+              <li><strong>Playlist Detail & Quick Play:</strong> Modal interaktif daftar putar pribadi, preview cover art, tombol putar cepat, dan mode acak (shuffle).</li>
+              <li><strong>Deterministik Timestamp Like:</strong> Pengurutan lagu favorit berdasarkan timestamp event like (<code>likedAt</code>) seragam dan konsisten di seluruh perangkat.</li>
+              <li><strong>FIFO Background Download Queue:</strong> Antrean unduhan audio offline cerdas dengan proteksi concurrency, progress listener, dan auto-download favorit & playlist.</li>
+            </ul>
+          </div>
+
+          <div className="pt-3 space-y-1.5">
+            <span className="font-bold text-zinc-400">v1.0.3</span>
+            <ul className="list-disc list-inside text-zinc-400 space-y-1">
               <li>Full Relay Pagination Loop: menarik seluruh riwayat sync hingga seq terakhir tanpa terpotong batas limit server.</li>
               <li>Dukungan penuh event <code>TOGGLE_FAVORITE</code>, <code>UPDATE_PLAYLIST</code>, dan <code>RECORD_PLAY</code> 1:1 format Android & iOS.</li>
               <li>Normalisasi YouTube Music Track ID otomatis dan update reaktif real-time pada Koleksi (Lagu Favorit & Playlist).</li>

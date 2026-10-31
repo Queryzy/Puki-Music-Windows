@@ -95,7 +95,12 @@ export class AudioPlayerService {
 
     let streamUrl = await DownloadEngineService.getOfflineAudioUrl(track.id)
     if (!streamUrl) {
-      streamUrl = await StreamResolverService.resolveStreamUrl(track.id)
+      streamUrl = await StreamResolverService.resolveStreamUrl(
+        track.id,
+        track.title,
+        track.artist,
+        track.durationSeconds
+      )
     }
 
     if (!streamUrl || !this.audio) {

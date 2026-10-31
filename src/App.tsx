@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Search, Heart } from 'lucide-react'
+import { Search, Heart, Play, Shuffle, ListMusic, Trash2 } from 'lucide-react'
 import { YouTubeMusicService, Track, Album, Playlist } from './services/YouTubeMusicService'
 import { AudioPlayerService } from './services/AudioPlayerService'
 import { LocalMusicStore, SyncSettings } from './services/LocalMusicStore'
@@ -261,6 +261,11 @@ export default function App() {
               onToggleFavorite={handleToggleFavorite}
               isFavorite={(id) => LocalMusicStore.isFavorite(id)}
               formatTime={formatTime}
+              onSearchArtist={(artist) => {
+                setSearchQuery(artist)
+                setActiveTab('search')
+                executeSearch(artist)
+              }}
             />
           )}
 
@@ -358,6 +363,118 @@ export default function App() {
                           }`}
                         >
                           <Heart className={`w-4 h-4 ${LocalMusicStore.isFavorite(t.id) ? 'fill-rose-500' : ''}`} />
+                        </button>
+                        <span className="text-xs font-mono text-zinc-500">{formatTime(t.durationSeconds)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Playlist Modal Sheet */}
+        {selectedPlaylist && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-40 flex items-center justify-center p-6">
+            <div className="bg-[#14141c] border border-white/10 rounded-3xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+              <div className="p-6 flex items-start space-x-5 border-b border-white/5 bg-gradient-to-b from-white/5 to-transparent">
+                {selectedPlaylist.tracks.length > 0 && selectedPlaylist.tracks[0].thumbnailUrl ? (
+                  <img
+                    src={selectedPlaylist.tracks[0].thumbnailUrl}
+                    alt={selectedPlaylist.name}
+                    className="w-24 h-24 rounded-2xl object-cover shadow-xl flex-shrink-0 bg-zinc-800"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-500/20 to-orange-700/40 border border-orange-500/30 flex items-center justify-center flex-shrink-0">
+                    <ListMusic className="w-10 h-10 text-orange-400" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-orange-400 font-semibold">
+                    Daftar Putar Pribadi
+                  </span>
+                  <h3 className="text-lg font-bold text-white truncate mt-1">{selectedPlaylist.name}</h3>
+                  <p className="text-xs text-zinc-400 mt-0.5">{selectedPlaylist.tracks.length} Lagu Tersimpan</p>
+
+                  {selectedPlaylist.tracks.length > 0 && (
+                    <div className="flex items-center space-x-2 mt-3">
+                      <button
+                        onClick={() => AudioPlayerService.playTrack(selectedPlaylist.tracks[0], selectedPlaylist.tracks)}
+                        className="px-3.5 py-1.5 rounded-full bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium flex items-center space-x-1.5 shadow-md shadow-orange-600/30 transition"
+                      >
+                        <Play className="w-3.5 h-3.5 fill-white" />
+                        <span>Putar Semua</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const shuffled = [...selectedPlaylist.tracks].sort(() => Math.random() - 0.5)
+                          AudioPlayerService.playTrack(shuffled[0], shuffled)
+                        }}
+                        className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-medium flex items-center space-x-1.5 transition"
+                      >
+                        <Shuffle className="w-3.5 h-3.5" />
+                        <span>Acak</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSelectedPlaylist(null)}
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 divide-y divide-white/[0.03]">
+                {selectedPlaylist.tracks.length === 0 ? (
+                  <div className="p-8 text-center text-zinc-500 text-sm">
+                    Playlist ini belum memiliki lagu.
+                  </div>
+                ) : (
+                  selectedPlaylist.tracks.map((t, i) => (
+                    <div
+                      key={`${t.id}-${i}`}
+                      onClick={() => AudioPlayerService.playTrack(t, selectedPlaylist.tracks)}
+                      className="flex items-center justify-between p-3 hover:bg-white/[0.04] rounded-xl cursor-pointer group"
+                    >
+                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                        <span className="w-5 text-center text-xs font-mono text-zinc-500 group-hover:text-orange-400">
+                          {i + 1}
+                        </span>
+                        {t.thumbnailUrl && (
+                          <img
+                            src={t.thumbnailUrl}
+                            alt={t.title}
+                            className="w-9 h-9 rounded-lg object-cover bg-zinc-800 flex-shrink-0"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1 pr-4">
+                          <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-orange-400">{t.title}</p>
+                          <p className="text-xs text-zinc-400 truncate">{t.artist}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={(e) => handleToggleFavorite(t, e)}
+                          className={`p-1.5 rounded-lg hover:bg-white/10 transition ${
+                            LocalMusicStore.isFavorite(t.id) ? 'text-rose-500' : 'text-zinc-500 hover:text-white'
+                          }`}
+                        >
+                          <Heart className={`w-4 h-4 ${LocalMusicStore.isFavorite(t.id) ? 'fill-rose-500' : ''}`} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            LocalMusicStore.removeTrackFromPlaylist(selectedPlaylist.id, t.id)
+                            const updated = LocalMusicStore.getPlaylists().find(p => p.id === selectedPlaylist.id)
+                            setSelectedPlaylist(updated || null)
+                          }}
+                          className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-white/5 transition"
+                          title="Hapus dari Playlist"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                         <span className="text-xs font-mono text-zinc-500">{formatTime(t.durationSeconds)}</span>
                       </div>

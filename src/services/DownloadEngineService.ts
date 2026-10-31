@@ -2,8 +2,86 @@ import { Track } from './YouTubeMusicService'
 import { StreamResolverService } from './StreamResolverService'
 import { LocalMusicStore } from './LocalMusicStore'
 
+export interface DownloadQueueStatus {
+  isProcessing: boolean
+  pendingCount: number
+  currentTrackTitle?: string
+}
+
 export class DownloadEngineService {
   private static activeDownloads = new Set<string>()
+  private static downloadQueue: Track[] = []
+  private static isProcessingQueue = false
+  private static currentProcessingTrack: Track | null = null
+  private static listeners: Set<(s: DownloadQueueStatus) => void> = new Set()
+
+  static subscribe(fn: (s: DownloadQueueStatus) => void) {
+    this.listeners.add(fn)
+    return () => this.listeners.delete(fn)
+  }
+
+  private static notify() {
+    const status: DownloadQueueStatus = {
+      isProcessing: this.isProcessingQueue,
+      pendingCount: this.downloadQueue.length,
+      currentTrackTitle: this.currentProcessingTrack?.title
+    }
+    this.listeners.forEach(fn => fn(status))
+  }
+
+  static getQueueStatus(): DownloadQueueStatus {
+    return {
+      isProcessing: this.isProcessingQueue,
+      pendingCount: this.downloadQueue.length,
+      currentTrackTitle: this.currentProcessingTrack?.title
+    }
+  }
+
+  /**
+   * Masukkan banyak lagu sekaligus ke antrean unduhan offline di background
+   */
+  static queueBatch(tracks: Track[]) {
+    for (const t of tracks) {
+      if (!LocalMusicStore.isDownloaded(t.id) && !this.downloadQueue.some(q => q.id === t.id)) {
+        this.downloadQueue.push(t)
+      }
+    }
+    this.notify()
+    this.processQueue()
+  }
+
+  static queueTrack(track: Track) {
+    if (!LocalMusicStore.isDownloaded(track.id) && !this.downloadQueue.some(q => q.id === track.id)) {
+      this.downloadQueue.push(track)
+      this.notify()
+      this.processQueue()
+    }
+  }
+
+  private static async processQueue() {
+    if (this.isProcessingQueue) return
+    this.isProcessingQueue = true
+    this.notify()
+
+    while (this.downloadQueue.length > 0) {
+      const nextTrack = this.downloadQueue.shift()!
+      this.currentProcessingTrack = nextTrack
+      this.notify()
+
+      try {
+        await this.downloadTrack(nextTrack)
+      } catch (err) {
+        console.warn(`Gagal unduh antrean track: ${nextTrack.title}`, err)
+      }
+
+      // Beri jeda 1 detik antar track agar aman dari rate-limit network
+      await new Promise(r => setTimeout(r, 1000))
+    }
+
+    this.currentProcessingTrack = null
+    this.isProcessingQueue = false
+    this.notify()
+  }
 
   static async downloadTrack(track: Track): Promise<boolean> {
     if (this.activeDownloads.has(track.id) || LocalMusicStore.isDownloaded(track.id)) {
@@ -12,7 +90,13 @@ export class DownloadEngineService {
 
     this.activeDownloads.add(track.id)
     try {
-      const streamUrl = await StreamResolverService.resolveStreamUrl(track.id)
+      const streamUrl = await StreamResolverService.resolveStreamUrl(
+        track.id,
+        track.title,
+        track.artist,
+        track.durationSeconds
+      )
+
       if (!streamUrl) {
         console.warn('Gagal mendapatkan stream URL untuk unduhan offline:', track.title)
         return false
