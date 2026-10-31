@@ -298,7 +298,7 @@ export default function App() {
                   else SyncManagerService.stop()
                 }
               }}
-              onManualSync={() => SyncManagerService.syncCycle()}
+              onManualSync={() => SyncManagerService.syncCycle(true)}
               onClearCache={handleClearCache}
               onCheckUpdate={handleCheckUpdate}
             />

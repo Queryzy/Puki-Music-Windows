@@ -5,9 +5,13 @@ export interface SyncStatus {
   state: 'DISCONNECTED' | 'CONNECTING' | 'SYNCED' | 'ERROR'
   lastSyncTime: number
   errorMessage?: string
+  syncedFavoritesCount?: number
+  syncedPlaylistsCount?: number
 }
 
 export class SyncManagerService {
+  private static KEY_LAST_SEQ = 'puki_last_sync_seq_v1'
+
   private static status: SyncStatus = {
     state: 'DISCONNECTED',
     lastSyncTime: 0
@@ -17,7 +21,13 @@ export class SyncManagerService {
   private static isSyncing = false
 
   static getStatus(): SyncStatus {
-    return this.status
+    const favs = LocalMusicStore.getFavorites()
+    const pls = LocalMusicStore.getPlaylists()
+    return {
+      ...this.status,
+      syncedFavoritesCount: favs.length,
+      syncedPlaylistsCount: pls.length
+    }
   }
 
   static subscribe(fn: (s: SyncStatus) => void) {
@@ -26,7 +36,8 @@ export class SyncManagerService {
   }
 
   private static notify() {
-    this.listeners.forEach(fn => fn({ ...this.status }))
+    const current = this.getStatus()
+    this.listeners.forEach(fn => fn(current))
   }
 
   static start() {
@@ -38,8 +49,9 @@ export class SyncManagerService {
     }
 
     if (this.pollingInterval) clearInterval(this.pollingInterval)
-    this.syncCycle()
-    this.pollingInterval = setInterval(() => this.syncCycle(), 30000)
+    // Jalankan siklus sinkronisasi pertama kali (baca penuh)
+    this.syncCycle(false)
+    this.pollingInterval = setInterval(() => this.syncCycle(false), 20000)
   }
 
   static stop() {
@@ -51,7 +63,14 @@ export class SyncManagerService {
     this.notify()
   }
 
-  static async syncCycle() {
+  /**
+   * Siklus sinkronisasi:
+   * 1. TOFU vault registration
+   * 2. Push outbox events (bi-directional sync)
+   * 3. Pull incremental / full delta loop sampai latest_seq
+   * 4. Apply batch & trigger re-render
+   */
+  static async syncCycle(forceFullPull: boolean = false) {
     if (this.isSyncing) return
     const settings = LocalMusicStore.getSettings()
     if (!settings.isEnabled || !settings.relayUrl || !settings.vaultId || !settings.syncSecret) {
@@ -59,14 +78,19 @@ export class SyncManagerService {
     }
 
     this.isSyncing = true
-    this.status.state = 'CONNECTING'
+    this.status = {
+      ...this.status,
+      state: 'CONNECTING',
+      errorMessage: undefined
+    }
     this.notify()
 
     try {
       const { kEnc, kAuth, authVerifier } = await SyncCrypto.deriveKeys(settings.syncSecret)
+      const baseUrl = settings.relayUrl.replace(/\/$/, '')
 
       // 1. Init Vault (TOFU pattern)
-      const initUrl = `${settings.relayUrl.replace(/\/$/, '')}/api/v1/vault/init`
+      const initUrl = `${baseUrl}/api/v1/vault/init`
       await fetch(initUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,60 +101,143 @@ export class SyncManagerService {
         })
       }).catch(() => {})
 
-      // 2. Pull Events
-      const pullUrl = `${settings.relayUrl.replace(/\/$/, '')}/api/v1/sync/pull?since_seq=0`
-      const timestamp = Date.now().toString()
-      const signature = await SyncCrypto.computeSignature(`${settings.vaultId}:${timestamp}:`, kAuth)
+      // 2. Push Outbox Events (jika ada aksi lokal yang belum ter-push ke relay)
+      let outboxLoops = 0
+      while (outboxLoops < 5) {
+        outboxLoops++
+        const pending = LocalMusicStore.getOutbox()
+        if (pending.length === 0) break
 
-      const pullRes = await fetch(pullUrl, {
-        headers: {
-          'X-Vault-ID': settings.vaultId,
-          'X-Timestamp': timestamp,
-          'X-Signature': signature
+        const batch = pending.slice(0, 50)
+        const eventsPayload: any[] = []
+        const sentIds = new Set<string>()
+
+        for (const item of batch) {
+          const plain = JSON.stringify(item)
+          const cipher = await SyncCrypto.encryptPayload(plain, kEnc)
+          eventsPayload.push({
+            id: item.id,
+            payload_encrypted: cipher
+          })
+          sentIds.add(item.id)
         }
-      })
 
-      if (pullRes.ok) {
+        const pushBody = JSON.stringify({ events: eventsPayload })
+        const timestamp = Date.now().toString()
+        const message = `${settings.vaultId}:${timestamp}:${pushBody}`
+        const signature = await SyncCrypto.computeSignature(message, kAuth)
+
+        const pushRes = await fetch(`${baseUrl}/api/v1/sync/push`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Vault-ID': settings.vaultId,
+            'X-Timestamp': timestamp,
+            'X-Signature': signature
+          },
+          body: pushBody
+        })
+
+        if (pushRes.ok) {
+          LocalMusicStore.removeOutboxItems(sentIds)
+        } else {
+          console.warn(`Sync push outbox gagal: HTTP ${pushRes.status}`)
+          break
+        }
+      }
+
+      // 3. Pull Events Pagination Loop
+      const localFavs = LocalMusicStore.getFavorites()
+      const localPlaylists = LocalMusicStore.getPlaylists()
+
+      // Jika user minta forceFull, atau jika store lokal masih kosong, paksa pull dari seq 0
+      let currentSeq = (forceFullPull || (localFavs.length === 0 && localPlaylists.length === 0))
+        ? 0
+        : parseInt(localStorage.getItem(this.KEY_LAST_SEQ) || '0', 10)
+
+      let hasMore = true
+      const incomingEvents: any[] = []
+      const deviceId = LocalMusicStore.getDeviceId()
+
+      while (hasMore) {
+        const pullUrl = `${baseUrl}/api/v1/sync/pull?since_seq=${currentSeq}&limit=200`
+        const pullTimestamp = Date.now().toString()
+        const pullMsg = `${settings.vaultId}:${pullTimestamp}:`
+        const pullSig = await SyncCrypto.computeSignature(pullMsg, kAuth)
+
+        const pullRes = await fetch(pullUrl, {
+          method: 'GET',
+          headers: {
+            'X-Vault-ID': settings.vaultId,
+            'X-Timestamp': pullTimestamp,
+            'X-Signature': pullSig
+          }
+        })
+
+        if (!pullRes.ok) {
+          throw new Error(`Pull relay gagal: HTTP ${pullRes.status}`)
+        }
+
         const pullData = await pullRes.json()
-        const events = pullData.events || []
+        const events: any[] = pullData.events || []
+        const latestSeq = typeof pullData.latest_seq === 'number' ? pullData.latest_seq : currentSeq
+
+        if (events.length === 0) {
+          hasMore = false
+          break
+        }
+
         for (const ev of events) {
+          if (typeof ev.seq === 'number') {
+            currentSeq = Math.max(currentSeq, ev.seq)
+          }
+
           try {
             const decryptedJson = await SyncCrypto.decryptPayload(ev.payload_encrypted, kEnc)
             const eventObj = JSON.parse(decryptedJson)
-            this.applyRemoteEvent(eventObj)
+
+            // Abaikan echo balik event milik perangkat Windows ini sendiri
+            if (eventObj.device_id !== deviceId) {
+              incomingEvents.push(eventObj)
+            }
           } catch (e) {
-            console.warn('Gagal dekripsi event remote:', e)
+            console.warn(`Gagal dekripsi payload event seq ${ev.seq}:`, e)
           }
+        }
+
+        if (currentSeq >= latestSeq) {
+          hasMore = false
         }
       }
 
+      // 4. Terapkan batch event ke store lokal
+      if (incomingEvents.length > 0) {
+        LocalMusicStore.applySyncBatch(incomingEvents)
+      }
+
+      // Simpan cursor seq terakhir yang berhasil ditarik
+      localStorage.setItem(this.KEY_LAST_SEQ, currentSeq.toString())
+
+      const updatedFavs = LocalMusicStore.getFavorites()
+      const updatedPls = LocalMusicStore.getPlaylists()
+
       this.status = {
         state: 'SYNCED',
-        lastSyncTime: Date.now()
+        lastSyncTime: Date.now(),
+        syncedFavoritesCount: updatedFavs.length,
+        syncedPlaylistsCount: updatedPls.length,
+        errorMessage: undefined
       }
     } catch (err: any) {
+      console.error('Kesalahan siklus sinkronisasi relay:', err)
       this.status = {
         state: 'ERROR',
         lastSyncTime: this.status.lastSyncTime,
-        errorMessage: err.message || 'Gagal sinkronisasi'
+        errorMessage: err.message || 'Koneksi relay gagal'
       }
     } finally {
       this.isSyncing = false
       this.notify()
-    }
-  }
-
-  private static applyRemoteEvent(ev: any) {
-    if (!ev || !ev.action) return
-    if (ev.action === 'FAVORITE_ADD' && ev.data) {
-      const favs = LocalMusicStore.getFavorites()
-      if (!favs.some(t => t.id === ev.data.id)) {
-        favs.unshift(ev.data)
-        localStorage.setItem('puki_favorites_v1', JSON.stringify(favs))
-      }
-    } else if (ev.action === 'FAVORITE_REMOVE' && ev.data) {
-      const favs = LocalMusicStore.getFavorites().filter(t => t.id !== ev.data.id)
-      localStorage.setItem('puki_favorites_v1', JSON.stringify(favs))
     }
   }
 }

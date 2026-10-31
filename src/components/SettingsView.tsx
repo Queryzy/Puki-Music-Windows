@@ -181,13 +181,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div className="pt-2 flex items-center justify-between flex-wrap gap-2">
-            <span className="text-xs text-zinc-400">
-              Status:{' '}
-              <strong className="text-white">
-                {syncStatus.state}{' '}
-                {syncStatus.lastSyncTime > 0 ? `(${new Date(syncStatus.lastSyncTime).toLocaleTimeString()})` : ''}
-              </strong>
-            </span>
+            <div className="space-y-0.5">
+              <span className="text-xs text-zinc-400">
+                Status:{' '}
+                <strong className="text-white">
+                  {syncStatus.state}{' '}
+                  {syncStatus.lastSyncTime > 0 ? `(${new Date(syncStatus.lastSyncTime).toLocaleTimeString()})` : ''}
+                </strong>
+              </span>
+              {syncStatus.state === 'SYNCED' && (
+                <p className="text-[11px] text-emerald-400 font-medium">
+                  ✓ {syncStatus.syncedFavoritesCount ?? 0} Lagu Favorit • {syncStatus.syncedPlaylistsCount ?? 0} Playlist Tersinkron
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center space-x-2">
               <button
@@ -328,12 +335,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4 text-xs divide-y divide-white/[0.03]">
           <div className="pt-2 space-y-1.5">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-orange-400">v1.0.2</span>
+              <span className="font-bold text-orange-400">v1.0.3</span>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
                 Terbaru
               </span>
             </div>
             <ul className="list-disc list-inside text-zinc-300 space-y-1">
+              <li>Full Relay Pagination Loop: menarik seluruh riwayat sync hingga seq terakhir tanpa terpotong batas limit server.</li>
+              <li>Dukungan penuh event <code>TOGGLE_FAVORITE</code>, <code>UPDATE_PLAYLIST</code>, dan <code>RECORD_PLAY</code> 1:1 format Android & iOS.</li>
+              <li>Normalisasi YouTube Music Track ID otomatis dan update reaktif real-time pada Koleksi (Lagu Favorit & Playlist).</li>
+              <li>Bi-directional Sync Outbox: perubahan lokal di Windows ter-push balik ke relay secara otomatis.</li>
+              <li>Indikator status sinkronisasi real-time yang menampilkan jumlah lagu favorit dan playlist tersinkron.</li>
+            </ul>
+          </div>
+
+          <div className="pt-3 space-y-1.5">
+            <span className="font-bold text-zinc-400">v1.0.2</span>
+            <ul className="list-disc list-inside text-zinc-400 space-y-1">
               <li>Now Playing View layar penuh model YouTube Music dengan ambient glow.</li>
               <li>Fitur Lirik Lagu sinkron (karaoke auto-scroll & seek klik baris) via LRCLIB.</li>
               <li>Daftar Putar (Antrean) dengan status lagu dan tombol Repeat / Shuffle.</li>
