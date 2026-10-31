@@ -3,6 +3,8 @@ import { StreamResolverService } from './StreamResolverService'
 import { DownloadEngineService } from './DownloadEngineService'
 import { LocalMusicStore } from './LocalMusicStore'
 
+export type RepeatMode = 'off' | 'all' | 'one'
+
 export class AudioPlayerService {
   private static audio: HTMLAudioElement | null = null
   private static currentTrack: Track | null = null
@@ -10,6 +12,8 @@ export class AudioPlayerService {
   private static currentIndex: number = -1
   private static isLoadingStream: boolean = false
   private static errorMessage: string | null = null
+  private static repeatMode: RepeatMode = 'off'
+  private static isShuffle: boolean = false
   private static listeners: Set<() => void> = new Set()
 
   static init() {
@@ -19,7 +23,7 @@ export class AudioPlayerService {
     this.audio.addEventListener('play', () => this.notify())
     this.audio.addEventListener('pause', () => this.notify())
     this.audio.addEventListener('timeupdate', () => this.notify())
-    this.audio.addEventListener('ended', () => this.next())
+    this.audio.addEventListener('ended', () => this.handleTrackEnded())
     this.audio.addEventListener('error', (e) => {
       console.error('Audio playback error:', e)
       this.errorMessage = 'Gagal memutar audio'
@@ -27,7 +31,6 @@ export class AudioPlayerService {
       this.notify()
     })
 
-    // Windows Media Keys Setup via Preload
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
       (window as any).electronAPI.onMediaCommand((cmd: string) => {
         if (cmd === 'play-pause') this.togglePlay()
@@ -37,7 +40,6 @@ export class AudioPlayerService {
       })
     }
 
-    // Windows SMTC MediaSession API
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => this.play())
       navigator.mediaSession.setActionHandler('pause', () => this.pause())
@@ -48,6 +50,32 @@ export class AudioPlayerService {
           this.audio.currentTime = details.seekTime
         }
       })
+    }
+  }
+
+  private static handleTrackEnded() {
+    if (this.repeatMode === 'one' && this.audio) {
+      this.audio.currentTime = 0
+      this.audio.play()
+      return
+    }
+
+    if (this.isShuffle && this.playlist.length > 1) {
+      const nextIdx = Math.floor(Math.random() * this.playlist.length)
+      this.currentIndex = nextIdx
+      this.playTrack(this.playlist[this.currentIndex])
+      return
+    }
+
+    if (this.repeatMode === 'all') {
+      this.next()
+      return
+    }
+
+    if (this.currentIndex < this.playlist.length - 1) {
+      this.next()
+    } else {
+      this.stop()
     }
   }
 
@@ -65,7 +93,6 @@ export class AudioPlayerService {
 
     LocalMusicStore.recordPlay(track)
 
-    // Cek apakah ada file offline lokal
     let streamUrl = await DownloadEngineService.getOfflineAudioUrl(track.id)
     if (!streamUrl) {
       streamUrl = await StreamResolverService.resolveStreamUrl(track.id)
@@ -90,7 +117,6 @@ export class AudioPlayerService {
       this.notify()
     })
 
-    // Update Windows SMTC metadata
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
@@ -102,7 +128,6 @@ export class AudioPlayerService {
       })
     }
 
-    // Update Windows Taskbar
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
       (window as any).electronAPI.updatePlaybackState({
         isPlaying: true,
@@ -144,7 +169,11 @@ export class AudioPlayerService {
 
   static next() {
     if (this.playlist.length === 0) return
-    this.currentIndex = (this.currentIndex + 1) % this.playlist.length
+    if (this.isShuffle && this.playlist.length > 1) {
+      this.currentIndex = Math.floor(Math.random() * this.playlist.length)
+    } else {
+      this.currentIndex = (this.currentIndex + 1) % this.playlist.length
+    }
     this.playTrack(this.playlist[this.currentIndex])
   }
 
@@ -168,6 +197,26 @@ export class AudioPlayerService {
     }
   }
 
+  static toggleRepeat() {
+    if (this.repeatMode === 'off') this.repeatMode = 'all'
+    else if (this.repeatMode === 'all') this.repeatMode = 'one'
+    else this.repeatMode = 'off'
+    this.notify()
+  }
+
+  static toggleShuffle() {
+    this.isShuffle = !this.isShuffle
+    this.notify()
+  }
+
+  static getQueue(): Track[] {
+    return [...this.playlist]
+  }
+
+  static getCurrentIndex(): number {
+    return this.currentIndex
+  }
+
   static getState() {
     return {
       currentTrack: this.currentTrack,
@@ -175,6 +224,10 @@ export class AudioPlayerService {
       currentTime: this.audio ? this.audio.currentTime : 0,
       duration: this.audio && !isNaN(this.audio.duration) ? this.audio.duration : (this.currentTrack?.durationSeconds || 0),
       volume: this.audio ? this.audio.volume : 1,
+      repeatMode: this.repeatMode,
+      isShuffle: this.isShuffle,
+      queue: this.playlist,
+      currentIndex: this.currentIndex,
       isLoading: this.isLoadingStream,
       error: this.errorMessage
     }

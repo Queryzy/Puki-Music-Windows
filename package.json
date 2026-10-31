@@ -1,6 +1,6 @@
 {
   "name": "puki-music-windows",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Native Windows Client for Puki Music with Two-Tier Discography Engine & E2EE Sync",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -34,8 +34,10 @@
     "vite-plugin-electron-renderer": "^0.14.5"
   },
   "dependencies": {
+    "@types/qrcode": "^1.5.6",
     "clsx": "^2.1.0",
     "lucide-react": "^0.330.0",
+    "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.2.1"

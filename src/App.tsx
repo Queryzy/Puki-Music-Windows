@@ -12,10 +12,12 @@ import { SearchView } from './components/SearchView'
 import { HomeView } from './components/HomeView'
 import { LibraryView } from './components/LibraryView'
 import { SettingsView } from './components/SettingsView'
+import { NowPlayingModal } from './components/NowPlayingModal'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'search' | 'home' | 'library' | 'settings'>('search')
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+  const [isNowPlayingExpanded, setIsNowPlayingExpanded] = useState(false)
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('Last Child')
@@ -43,7 +45,7 @@ export default function App() {
   // Settings state
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(LocalMusicStore.getSettings())
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(SyncManagerService.getStatus())
-  const [appVersion] = useState('1.0.1')
+  const [appVersion] = useState('1.0.2')
   const [latestRelease, setLatestRelease] = useState<{ tag: string; downloadUrl: string } | null>(null)
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
@@ -400,6 +402,18 @@ export default function App() {
         )}
 
         <PlayerBar
+          playerState={playerState}
+          isFavorite={!!playerState.currentTrack && LocalMusicStore.isFavorite(playerState.currentTrack.id)}
+          onToggleFavorite={handleToggleFavorite}
+          formatTime={formatTime}
+          onToggleExpandNowPlaying={() => setIsNowPlayingExpanded(true)}
+          onToggleQueue={() => setIsNowPlayingExpanded(true)}
+          isQueueOpen={isNowPlayingExpanded}
+        />
+
+        <NowPlayingModal
+          isOpen={isNowPlayingExpanded}
+          onClose={() => setIsNowPlayingExpanded(false)}
           playerState={playerState}
           isFavorite={!!playerState.currentTrack && LocalMusicStore.isFavorite(playerState.currentTrack.id)}
           onToggleFavorite={handleToggleFavorite}
