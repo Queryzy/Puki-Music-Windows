@@ -357,6 +357,7 @@ export default function App() {
                 }
               }}
               onManualSync={() => SyncManagerService.syncCycle(true)}
+              onForceResetSync={() => SyncManagerService.forceResetSync()}
               onClearCache={handleClearCache}
               onCheckUpdate={handleCheckUpdate}
             />

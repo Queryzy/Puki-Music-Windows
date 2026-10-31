@@ -30,6 +30,15 @@ export class SyncManagerService {
     }
   }
 
+  /**
+   * Reset kursor sinkronisasi dan paksa sinkronisasi ulang bersih dari seq 0
+   */
+  static forceResetSync() {
+    localStorage.removeItem(this.KEY_LAST_SEQ)
+    localStorage.removeItem(LocalMusicStore.KEY_FAVORITES)
+    this.syncCycle(true)
+  }
+
   static subscribe(fn: (s: SyncStatus) => void) {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)
@@ -196,9 +205,25 @@ export class SyncManagerService {
             const decryptedJson = await SyncCrypto.decryptPayload(ev.payload_encrypted, kEnc)
             const eventObj = JSON.parse(decryptedJson)
 
-            // Inject timestamp dari event relay jika ada
-            if (ev.created_at && !eventObj.timestamp) {
-              eventObj.timestamp = typeof ev.created_at === 'number' ? ev.created_at : new Date(ev.created_at).getTime()
+            // Hitung timestamp deterministik absolut dari relay
+            const relayTime = ev.created_at
+              ? (typeof ev.created_at === 'number' ? ev.created_at : new Date(ev.created_at).getTime())
+              : (ev.seq ? ev.seq * 1000 : Date.now())
+
+            eventObj.timestamp = eventObj.timestamp || relayTime
+            eventObj.relaySeq = ev.seq
+
+            // Pastikan track membawa timestamp & relaySeq jika aksi TOGGLE_FAVORITE / FAVORITE_ADD
+            if (eventObj.data) {
+              eventObj.data.likedAt = eventObj.data.likedAt || eventObj.data.timestamp || relayTime
+              eventObj.data.relaySeq = ev.seq
+              if (eventObj.data.track) {
+                eventObj.data.track.likedAt = eventObj.data.track.likedAt || eventObj.data.likedAt
+                eventObj.data.track.relaySeq = ev.seq
+              }
+            } else if (eventObj.track) {
+              eventObj.track.likedAt = eventObj.track.likedAt || relayTime
+              eventObj.track.relaySeq = ev.seq
             }
 
             // Abaikan echo balik event milik perangkat Windows ini sendiri

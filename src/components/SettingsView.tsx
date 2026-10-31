@@ -28,6 +28,7 @@ interface SettingsViewProps {
   cacheClearSuccess: boolean
   onUpdateSettings: (settings: Partial<SyncSettings>) => void
   onManualSync: () => void
+  onForceResetSync?: () => void
   onClearCache: () => void
   onCheckUpdate: () => void
 }
@@ -45,6 +46,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   cacheClearSuccess,
   onUpdateSettings,
   onManualSync,
+  onForceResetSync,
   onClearCache,
   onCheckUpdate
 }) => {
@@ -224,10 +226,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <button
                 onClick={onManualSync}
                 className="px-3.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-xs font-medium text-white transition flex items-center space-x-1.5 shadow-md shadow-orange-600/20"
+                title="Tarik delta sinkronisasi terbaru"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Sinkronkan</span>
               </button>
+
+              {onForceResetSync && (
+                <button
+                  onClick={onForceResetSync}
+                  className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-xs font-medium text-zinc-400 transition"
+                  title="Reset cache dan susun ulang urutan favorit dari awal relay"
+                >
+                  <span>Re-Sync Bersih</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

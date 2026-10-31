@@ -52,7 +52,7 @@ export function normalizeTrack(raw: any): Track {
 }
 
 export class LocalMusicStore {
-  private static KEY_FAVORITES = 'puki_favorites_v1'
+  static KEY_FAVORITES = 'puki_favorites_v1'
   private static KEY_PLAYLISTS = 'puki_playlists_v1'
   private static KEY_HISTORY = 'puki_history_v1'
   private static KEY_SETTINGS = 'puki_settings_v1'
@@ -114,10 +114,12 @@ export class LocalMusicStore {
     try {
       const raw = localStorage.getItem(this.KEY_FAVORITES)
       const list: Track[] = raw ? JSON.parse(raw) : []
-      // Selalu sort deterministik: terbaru selalu di atas (#1)
+      // Selalu sort deterministik: likedAt terbesar (terbaru) di atas (#1)
       return list.sort((a, b) => {
-        if (a.likedAt && b.likedAt) return b.likedAt - a.likedAt
-        return 0
+        const timeA = a.likedAt || 0
+        const timeB = b.likedAt || 0
+        if (timeA !== timeB) return timeB - timeA
+        return (a.title || '').localeCompare(b.title || '')
       })
     } catch {
       return []
@@ -310,14 +312,18 @@ export class LocalMusicStore {
   }
 
   // ── Sync Engine Remote Batch Processor ─────────────────────
-  static applySyncBatch(events: Array<{ action: string; data: any; timestamp?: number }>) {
+  static applySyncBatch(events: Array<{ action: string; data: any; timestamp?: number; relaySeq?: number }>) {
     let favs = this.getFavorites()
     let playlists = this.getPlaylists()
     let history = this.getHistory()
     let changed = false
 
-    // Urutkan event berdasarkan timestamp secara kronologis
-    const sorted = [...events].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    // Urutkan event berdasarkan timestamp / sequence secara kronologis
+    const sorted = [...events].sort((a, b) => {
+      const tsA = a.data?.likedAt || a.timestamp || (a.relaySeq ? a.relaySeq * 1000 : 0)
+      const tsB = b.data?.likedAt || b.timestamp || (b.relaySeq ? b.relaySeq * 1000 : 0)
+      return tsA - tsB
+    })
 
     for (const ev of sorted) {
       if (!ev || !ev.action) continue
@@ -332,14 +338,14 @@ export class LocalMusicStore {
 
         const isLiked = d.isLiked !== undefined ? Boolean(d.isLiked) : true
         const idx = favs.findIndex(t => t.id === track.id)
-        const eventTs = d.likedAt || d.timestamp || ev.timestamp || Date.now()
+        const eventTs = d.likedAt || d.timestamp || ev.timestamp || (ev.relaySeq ? ev.relaySeq * 1000 : Date.now())
         track.likedAt = eventTs
 
         if (isLiked) {
           if (idx >= 0) {
-            favs[idx] = { ...favs[idx], ...track, likedAt: favs[idx].likedAt || eventTs }
+            favs[idx] = { ...favs[idx], ...track, likedAt: eventTs }
           } else {
-            favs.push(track)
+            favs.unshift(track)
           }
           changed = true
         } else {
@@ -350,11 +356,15 @@ export class LocalMusicStore {
         }
       } else if (action === 'FAVORITE_ADD') {
         const track = normalizeTrack(d.track || d)
-        track.likedAt = d.likedAt || d.timestamp || ev.timestamp || Date.now()
-        if (track.id && !favs.some(t => t.id === track.id)) {
-          favs.push(track)
-          changed = true
+        const eventTs = d.likedAt || d.timestamp || ev.timestamp || (ev.relaySeq ? ev.relaySeq * 1000 : Date.now())
+        track.likedAt = eventTs
+        const idx = favs.findIndex(t => t.id === track.id)
+        if (idx >= 0) {
+          favs[idx] = { ...favs[idx], ...track, likedAt: eventTs }
+        } else {
+          favs.unshift(track)
         }
+        changed = true
       } else if (action === 'FAVORITE_REMOVE') {
         const track = normalizeTrack(d.track || d)
         if (track.id) {
