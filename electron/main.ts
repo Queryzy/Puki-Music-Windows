@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage } from 'electron'
 import path from 'node:path'
 
 process.env.DIST = path.join(__dirname, '../dist')
@@ -6,6 +6,7 @@ process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.
 
 let win: BrowserWindow | null
 let tray: Tray | null
+let isQuiting = false
 
 function createWindow() {
   win = new BrowserWindow({
@@ -27,7 +28,8 @@ function createWindow() {
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL)
   } else {
-    win.loadFile(path.join(process.env.DIST, 'index.html'))
+    const indexPath = path.join(process.env.DIST || '', 'index.html')
+    win.loadFile(indexPath)
   }
 
   // Windows Media Keys Setup
@@ -46,19 +48,12 @@ function createWindow() {
 
   // Prevent app exit on close, minimize to tray
   win.on('close', (event) => {
-    if (!app.isQuiting) {
+    if (!isQuiting) {
       event.preventDefault()
       win?.hide()
     }
     return false
   })
-}
-
-// Extend App type for custom isQuiting flag
-declare module 'electron' {
-  interface App {
-    isQuiting?: boolean
-  }
 }
 
 app.whenReady().then(() => {
@@ -80,7 +75,7 @@ app.whenReady().then(() => {
       {
         label: 'Keluar',
         click: () => {
-          app.isQuiting = true
+          isQuiting = true
           app.quit()
         }
       }
@@ -100,22 +95,26 @@ app.whenReady().then(() => {
     if (win) {
       win.setTitle(`${title ? `${title} - ${artist} | ` : ''}Puki Music`)
       
-      // Update Thumbar buttons
+      // Update Thumbar buttons with nativeImage
       try {
+        const prevIcon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', 'prev.png'))
+        const playPauseIcon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', isPlaying ? 'pause.png' : 'play.png'))
+        const nextIcon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', 'next.png'))
+
         win.setThumbarButtons([
           {
             tooltip: 'Lagu Sebelumnya',
-            icon: path.join(process.env.VITE_PUBLIC || '', 'prev.png'),
+            icon: prevIcon,
             click() { win?.webContents.send('media-command', 'prev') }
           },
           {
             tooltip: isPlaying ? 'Jeda' : 'Putar',
-            icon: path.join(process.env.VITE_PUBLIC || '', isPlaying ? 'pause.png' : 'play.png'),
+            icon: playPauseIcon,
             click() { win?.webContents.send('media-command', 'play-pause') }
           },
           {
             tooltip: 'Lagu Berikutnya',
-            icon: path.join(process.env.VITE_PUBLIC || '', 'next.png'),
+            icon: nextIcon,
             click() { win?.webContents.send('media-command', 'next') }
           }
         ])

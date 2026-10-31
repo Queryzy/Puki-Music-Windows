@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Home, Library, Settings, Play, Pause, SkipBack, SkipForward, Volume2, Disc, Music } from 'lucide-react'
 import { YouTubeMusicService, Track, Album } from './services/YouTubeMusicService'
 import { AudioPlayerService } from './services/AudioPlayerService'
@@ -22,7 +22,9 @@ export default function App() {
     })
     // Auto-search default query
     handleSearch('Last Child')
-    return unsub
+    return () => {
+      unsub()
+    }
   }, [])
 
   const handleSearch = async (query: string) => {
