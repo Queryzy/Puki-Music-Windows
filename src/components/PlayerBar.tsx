@@ -25,6 +25,7 @@ interface PlayerBarProps {
   onToggleExpandNowPlaying?: () => void
   onToggleQueue?: () => void
   isQueueOpen?: boolean
+  onOpenArtistModal?: (artistName: string) => void
 }
 
 export const PlayerBar: React.FC<PlayerBarProps> = ({
@@ -34,7 +35,8 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
   formatTime,
   onToggleExpandNowPlaying,
   onToggleQueue,
-  isQueueOpen
+  isQueueOpen,
+  onOpenArtistModal
 }) => {
   const currentDuration = playerState.duration || 100
   const progressPercent = Math.min(100, Math.max(0, (playerState.currentTime / currentDuration) * 100))
@@ -68,7 +70,19 @@ export const PlayerBar: React.FC<PlayerBarProps> = ({
               >
                 {playerState.currentTrack.title}
               </p>
-              <p className="text-[11px] text-zinc-400 truncate">{playerState.currentTrack.artist}</p>
+              <div className="flex items-center space-x-1 mt-0.5">
+                <button
+                  onClick={() =>
+                    playerState.currentTrack?.artist &&
+                    onOpenArtistModal &&
+                    onOpenArtistModal(playerState.currentTrack.artist)
+                  }
+                  title="Lihat Album & Lagu Artis"
+                  className="text-[11px] text-zinc-400 hover:text-orange-400 hover:underline truncate transition text-left"
+                >
+                  {playerState.currentTrack.artist}
+                </button>
+              </div>
             </div>
 
             <button

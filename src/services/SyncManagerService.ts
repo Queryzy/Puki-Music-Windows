@@ -196,6 +196,11 @@ export class SyncManagerService {
             const decryptedJson = await SyncCrypto.decryptPayload(ev.payload_encrypted, kEnc)
             const eventObj = JSON.parse(decryptedJson)
 
+            // Inject timestamp dari event relay jika ada
+            if (ev.created_at && !eventObj.timestamp) {
+              eventObj.timestamp = typeof ev.created_at === 'number' ? ev.created_at : new Date(ev.created_at).getTime()
+            }
+
             // Abaikan echo balik event milik perangkat Windows ini sendiri
             if (eventObj.device_id !== deviceId) {
               incomingEvents.push(eventObj)

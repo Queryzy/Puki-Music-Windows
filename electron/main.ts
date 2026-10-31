@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, Tray, Menu, nativeImage } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import path from 'node:path'
 
 process.env.DIST = path.join(__dirname, '../dist')
@@ -7,6 +8,66 @@ process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.
 let win: BrowserWindow | null
 let tray: Tray | null
 let isQuiting = false
+
+// Konfigurasi electron-updater untuk GitHub Releases
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+
+function setupAutoUpdater() {
+  autoUpdater.on('checking-for-update', () => {
+    win?.webContents.send('updater-status', { status: 'checking' })
+  })
+
+  autoUpdater.on('update-available', (info) => {
+    win?.webContents.send('updater-status', { status: 'available', info })
+  })
+
+  autoUpdater.on('update-not-available', (info) => {
+    win?.webContents.send('updater-status', { status: 'not-available', info })
+  })
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    win?.webContents.send('updater-status', {
+      status: 'downloading',
+      progress: {
+        percent: Math.round(progressObj.percent),
+        bytesPerSecond: progressObj.bytesPerSecond,
+        transferred: progressObj.transferred,
+        total: progressObj.total
+      }
+    })
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    win?.webContents.send('updater-status', { status: 'downloaded', info })
+  })
+
+  autoUpdater.on('error', (err) => {
+    win?.webContents.send('updater-status', {
+      status: 'error',
+      error: err?.message || 'Gagal memeriksa pembaruan'
+    })
+  })
+
+  ipcMain.on('check-for-updates', () => {
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates().catch((err) => {
+        win?.webContents.send('updater-status', { status: 'error', error: err.message })
+      })
+    } else {
+      // Mock status saat di dev mode
+      win?.webContents.send('updater-status', {
+        status: 'not-available',
+        info: { version: app.getVersion() }
+      })
+    }
+  })
+
+  ipcMain.on('restart-and-install', () => {
+    isQuiting = true
+    autoUpdater.quitAndInstall(false, true)
+  })
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -58,6 +119,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow()
+  setupAutoUpdater()
 
   // Setup System Tray
   try {
@@ -95,7 +157,6 @@ app.whenReady().then(() => {
     if (win) {
       win.setTitle(`${title ? `${title} - ${artist} | ` : ''}Puki Music`)
       
-      // Update Thumbar buttons with nativeImage
       try {
         const prevIcon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', 'prev.png'))
         const playPauseIcon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC || '', isPlaying ? 'pause.png' : 'play.png'))
@@ -123,6 +184,13 @@ app.whenReady().then(() => {
       }
     }
   })
+
+  // Auto check update 5 detik setelah window terbuka
+  if (app.isPackaged) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(() => {})
+    }, 5000)
+  }
 })
 
 app.on('will-quit', () => {

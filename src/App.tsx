@@ -13,6 +13,7 @@ import { HomeView } from './components/HomeView'
 import { LibraryView } from './components/LibraryView'
 import { SettingsView } from './components/SettingsView'
 import { NowPlayingModal } from './components/NowPlayingModal'
+import { ArtistDiscographyModal } from './components/ArtistDiscographyModal'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'search' | 'home' | 'library' | 'settings'>('search')
@@ -27,6 +28,7 @@ export default function App() {
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null)
   const [albumTracks, setAlbumTracks] = useState<Track[]>([])
   const [isLoadingAlbum, setIsLoadingAlbum] = useState(false)
+  const [selectedArtistForModal, setSelectedArtistForModal] = useState<string | null>(null)
 
   // Home state
   const [homeQuickPicks, setHomeQuickPicks] = useState<Track[]>([])
@@ -45,10 +47,17 @@ export default function App() {
   // Settings state
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(LocalMusicStore.getSettings())
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(SyncManagerService.getStatus())
-  const [appVersion] = useState('1.0.2')
+  const [appVersion] = useState('1.0.5')
   const [latestRelease, setLatestRelease] = useState<{ tag: string; downloadUrl: string } | null>(null)
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
+  const [updaterProgress, setUpdaterProgress] = useState<{
+    percent: number
+    bytesPerSecond: number
+    transferred: number
+    total: number
+  } | null>(null)
+  const [isUpdateDownloaded, setIsUpdateDownloaded] = useState(false)
   const [cacheClearSuccess, setCacheClearSuccess] = useState(false)
 
   // Player state
@@ -78,6 +87,36 @@ export default function App() {
     SyncManagerService.start()
     executeSearch('Last Child')
     loadHomeData()
+
+    // Listen electron auto-updater events
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.onUpdateStatus) {
+      ;(window as any).electronAPI.onUpdateStatus((data: any) => {
+        if (data.status === 'checking') {
+          setIsCheckingUpdate(true)
+          setUpdateMessage('Memeriksa pembaruan rilis...')
+        } else if (data.status === 'available') {
+          setIsCheckingUpdate(false)
+          setUpdateMessage(`Pembaruan tersedia (${data.info?.version || 'versi terbaru'}). Mengunduh di background...`)
+        } else if (data.status === 'not-available') {
+          setIsCheckingUpdate(false)
+          setUpdateMessage('Puki Music sudah dalam versi terbaru!')
+          setUpdaterProgress(null)
+        } else if (data.status === 'downloading') {
+          setIsCheckingUpdate(false)
+          setUpdaterProgress(data.progress)
+          setUpdateMessage(`Mengunduh update: ${data.progress?.percent || 0}%`)
+        } else if (data.status === 'downloaded') {
+          setIsCheckingUpdate(false)
+          setUpdaterProgress(null)
+          setIsUpdateDownloaded(true)
+          setUpdateMessage('Pembaruan selesai diunduh! Klik Pasang & Mulai Ulang.')
+        } else if (data.status === 'error') {
+          setIsCheckingUpdate(false)
+          setUpdaterProgress(null)
+          setUpdateMessage(`Gagal update: ${data.error}`)
+        }
+      })
+    }
 
     return () => {
       unsubPlayer()
@@ -156,6 +195,11 @@ export default function App() {
   }
 
   const handleCheckUpdate = async () => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.checkForUpdates) {
+      ;(window as any).electronAPI.checkForUpdates()
+      return
+    }
+
     setIsCheckingUpdate(true)
     setUpdateMessage(null)
     try {
@@ -180,6 +224,12 @@ export default function App() {
       setUpdateMessage('Koneksi internet bermasalah saat cek update')
     } finally {
       setIsCheckingUpdate(false)
+    }
+  }
+
+  const handleRestartAndInstall = () => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.restartAndInstall) {
+      ;(window as any).electronAPI.restartAndInstall()
     }
   }
 
@@ -293,6 +343,9 @@ export default function App() {
               latestRelease={latestRelease}
               isCheckingUpdate={isCheckingUpdate}
               updateMessage={updateMessage}
+              updaterProgress={updaterProgress}
+              isUpdateDownloaded={isUpdateDownloaded}
+              onRestartAndInstall={handleRestartAndInstall}
               cacheClearSuccess={cacheClearSuccess}
               onUpdateSettings={(s) => {
                 const updated = { ...syncSettings, ...s }
@@ -526,6 +579,7 @@ export default function App() {
           onToggleExpandNowPlaying={() => setIsNowPlayingExpanded(true)}
           onToggleQueue={() => setIsNowPlayingExpanded(true)}
           isQueueOpen={isNowPlayingExpanded}
+          onOpenArtistModal={(artist) => setSelectedArtistForModal(artist)}
         />
 
         <NowPlayingModal
@@ -535,7 +589,19 @@ export default function App() {
           isFavorite={!!playerState.currentTrack && LocalMusicStore.isFavorite(playerState.currentTrack.id)}
           onToggleFavorite={handleToggleFavorite}
           formatTime={formatTime}
+          onOpenArtistModal={(artist) => setSelectedArtistForModal(artist)}
         />
+
+        {selectedArtistForModal && (
+          <ArtistDiscographyModal
+            artistName={selectedArtistForModal}
+            isOpen={!!selectedArtistForModal}
+            onClose={() => setSelectedArtistForModal(null)}
+            onToggleFavorite={handleToggleFavorite}
+            isFavorite={(id) => LocalMusicStore.isFavorite(id)}
+            formatTime={formatTime}
+          />
+        )}
       </main>
     </div>
   )

@@ -24,6 +24,7 @@ interface NowPlayingModalProps {
   isFavorite: boolean
   onToggleFavorite: (track: Track) => void
   formatTime: (secs: number) => string
+  onOpenArtistModal?: (artistName: string) => void
 }
 
 export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
@@ -32,7 +33,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
   playerState,
   isFavorite,
   onToggleFavorite,
-  formatTime
+  formatTime,
+  onOpenArtistModal
 }) => {
   const [activeTab, setActiveTab] = useState<'lyrics' | 'queue'>('lyrics')
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null)
@@ -139,7 +141,13 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
           <div className="w-80 flex items-center justify-between">
             <div className="min-w-0 flex-1 pr-4">
               <h2 className="text-xl font-bold text-white truncate">{track.title}</h2>
-              <p className="text-sm text-zinc-400 truncate mt-0.5">{track.artist}</p>
+              <button
+                onClick={() => onOpenArtistModal && onOpenArtistModal(track.artist)}
+                title="Lihat Album & Lagu Artis"
+                className="text-sm text-zinc-400 hover:text-orange-400 hover:underline truncate mt-0.5 text-left transition"
+              >
+                {track.artist}
+              </button>
             </div>
             <button
               onClick={() => onToggleFavorite(track)}

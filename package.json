@@ -1,6 +1,6 @@
 {
   "name": "puki-music-windows",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Native Windows Client for Puki Music with Two-Tier Discography Engine & E2EE Sync",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -36,6 +36,7 @@
   "dependencies": {
     "@types/qrcode": "^1.5.6",
     "clsx": "^2.1.0",
+    "electron-updater": "^6.8.11",
     "lucide-react": "^0.330.0",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
@@ -45,6 +46,13 @@
   "build": {
     "appId": "com.puki.music.windows",
     "productName": "Puki Music",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Queryzy",
+        "repo": "Puki-Music-Windows"
+      }
+    ],
     "directories": {
       "output": "release"
     },

@@ -114,8 +114,11 @@ export class LocalMusicStore {
     try {
       const raw = localStorage.getItem(this.KEY_FAVORITES)
       const list: Track[] = raw ? JSON.parse(raw) : []
-      // Selalu sort deterministik: terbaru selalu di atas
-      return list.sort((a, b) => (b.likedAt || 0) - (a.likedAt || 0))
+      // Selalu sort deterministik: terbaru selalu di atas (#1)
+      return list.sort((a, b) => {
+        if (a.likedAt && b.likedAt) return b.likedAt - a.likedAt
+        return 0
+      })
     } catch {
       return []
     }
@@ -329,13 +332,14 @@ export class LocalMusicStore {
 
         const isLiked = d.isLiked !== undefined ? Boolean(d.isLiked) : true
         const idx = favs.findIndex(t => t.id === track.id)
-        track.likedAt = d.likedAt || ev.timestamp || Date.now()
+        const eventTs = d.likedAt || d.timestamp || ev.timestamp || Date.now()
+        track.likedAt = eventTs
 
         if (isLiked) {
           if (idx >= 0) {
-            favs[idx] = { ...favs[idx], ...track }
+            favs[idx] = { ...favs[idx], ...track, likedAt: favs[idx].likedAt || eventTs }
           } else {
-            favs.unshift(track)
+            favs.push(track)
           }
           changed = true
         } else {
@@ -346,9 +350,9 @@ export class LocalMusicStore {
         }
       } else if (action === 'FAVORITE_ADD') {
         const track = normalizeTrack(d.track || d)
-        track.likedAt = d.likedAt || ev.timestamp || Date.now()
+        track.likedAt = d.likedAt || d.timestamp || ev.timestamp || Date.now()
         if (track.id && !favs.some(t => t.id === track.id)) {
-          favs.unshift(track)
+          favs.push(track)
           changed = true
         }
       } else if (action === 'FAVORITE_REMOVE') {
@@ -422,7 +426,11 @@ export class LocalMusicStore {
     }
 
     if (changed) {
-      favs.sort((a, b) => (b.likedAt || 0) - (a.likedAt || 0))
+      // Sort deterministik: jika likedAt tersedia urutkan terbaru ke terlama, jika tidak urutkan sesuai posisi masuk
+      favs.sort((a, b) => {
+        if (a.likedAt && b.likedAt) return b.likedAt - a.likedAt
+        return 0
+      })
       localStorage.setItem(this.KEY_FAVORITES, JSON.stringify(favs))
       localStorage.setItem(this.KEY_PLAYLISTS, JSON.stringify(playlists))
       localStorage.setItem(this.KEY_HISTORY, JSON.stringify(history))

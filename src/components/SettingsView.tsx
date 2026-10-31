@@ -22,6 +22,9 @@ interface SettingsViewProps {
   latestRelease: { tag: string; downloadUrl: string } | null
   isCheckingUpdate: boolean
   updateMessage: string | null
+  updaterProgress?: { percent: number; bytesPerSecond: number; transferred: number; total: number } | null
+  isUpdateDownloaded?: boolean
+  onRestartAndInstall?: () => void
   cacheClearSuccess: boolean
   onUpdateSettings: (settings: Partial<SyncSettings>) => void
   onManualSync: () => void
@@ -36,6 +39,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   latestRelease,
   isCheckingUpdate,
   updateMessage,
+  updaterProgress,
+  isUpdateDownloaded,
+  onRestartAndInstall,
   cacheClearSuccess,
   onUpdateSettings,
   onManualSync,
@@ -284,41 +290,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center space-x-2.5">
           <Sparkles className="w-5 h-5 text-orange-500" />
           <div>
-            <h3 className="text-sm font-bold text-zinc-100">Pembaruan Aplikasi (In-App Updater)</h3>
-            <p className="text-xs text-zinc-400">Periksa pembaruan rilis langsung dari GitHub repository.</p>
+            <h3 className="text-sm font-bold text-zinc-100">Pembaruan Aplikasi (In-App Silent Updater)</h3>
+            <p className="text-xs text-zinc-400">Unduh & pasang otomatis di background langsung dari GitHub Releases.</p>
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-2">
-          <div>
-            <p className="text-xs text-zinc-400">
-              Versi Terpasang: <strong className="text-white">v{appVersion}</strong>
-            </p>
-            {updateMessage && <p className="text-xs text-orange-400 font-medium mt-1">{updateMessage}</p>}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-zinc-400">
+                Versi Terpasang: <strong className="text-white">v{appVersion}</strong>
+              </p>
+              {updateMessage && <p className="text-xs text-orange-400 font-medium mt-1">{updateMessage}</p>}
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {isUpdateDownloaded ? (
+                <button
+                  onClick={onRestartAndInstall}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center space-x-1.5 transition shadow-lg shadow-emerald-600/30 animate-pulse"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Pasang & Mulai Ulang</span>
+                </button>
+              ) : (
+                <button
+                  onClick={onCheckUpdate}
+                  disabled={isCheckingUpdate || !!updaterProgress}
+                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-medium flex items-center space-x-1.5 transition shadow-lg shadow-orange-600/30"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingUpdate ? 'Memeriksa...' : 'Periksa Pembaruan'}</span>
+                </button>
+              )}
+
+              {latestRelease && (
+                <a
+                  href={latestRelease.downloadUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs transition"
+                  title="Unduh Manual Installer Resmi"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+            </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={onCheckUpdate}
-              disabled={isCheckingUpdate}
-              className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-medium flex items-center space-x-1.5 transition shadow-lg shadow-orange-600/30"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-              <span>{isCheckingUpdate ? 'Memeriksa...' : 'Periksa Pembaruan'}</span>
-            </button>
-
-            {latestRelease && (
-              <a
-                href={latestRelease.downloadUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs transition"
-                title="Unduh Installer Resmi"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
-            )}
-          </div>
+          {/* Progress Bar Background Download */}
+          {updaterProgress && (
+            <div className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-orange-400 font-medium flex items-center space-x-1.5">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Mengunduh installer di latar belakang...</span>
+                </span>
+                <span className="font-mono text-zinc-300 font-bold">{updaterProgress.percent}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-orange-600 to-amber-500 transition-all duration-300 rounded-full"
+                  style={{ width: `${updaterProgress.percent}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-[11px] font-mono text-zinc-500">
+                <span>{(updaterProgress.transferred / (1024 * 1024)).toFixed(1)} MB / {(updaterProgress.total / (1024 * 1024)).toFixed(1)} MB</span>
+                <span>{(updaterProgress.bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s</span>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -335,17 +376,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4 text-xs divide-y divide-white/[0.03]">
           <div className="pt-2 space-y-1.5">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-orange-400">v1.0.4</span>
+              <span className="font-bold text-orange-400">v1.0.5</span>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
                 Terbaru
               </span>
             </div>
             <ul className="list-disc list-inside text-zinc-300 space-y-1">
+              <li><strong>Resilient Direct InnerTube Stream Resolver:</strong> Bypass server Piped publik yang rentan down/timeout. Mengambil langsung stream audio m4a (itag 140) via InnerTube <code>ANDROID_VR</code> 1:1 mobile dengan auto-match katalog Deezer/non-YT.</li>
+              <li><strong>Artist Discography Modal Sheet:</strong> Akses diskografi lengkap penyanyi (Album Studio dan Lagu Populer) langsung dari PlayerBar dan NowPlaying.</li>
+              <li><strong>Silent Background Auto-Updater:</strong> Dukungan penuh pembaruan otomatis di background via <code>electron-updater</code> lengkap dengan progress bar dan tombol restart instalasi.</li>
+              <li><strong>Deterministik Liked Music:</strong> Urutan lagu favorit terbaru langsung berada di urutan teratas (#1).</li>
+              <li><strong>Dynamic Version Injection:</strong> Sinkronisasi nomor versi UI langsung dengan build release.</li>
+            </ul>
+          </div>
+
+          <div className="pt-4 space-y-1.5">
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-zinc-400">v1.0.4</span>
+            </div>
+            <ul className="list-disc list-inside text-zinc-400 space-y-1">
               <li><strong>OmniSource Deezer Resolver:</strong> Mengurai dan memutar katalog Deezer (<code>dz_...</code>) seperti <em>This Side of Paradise - Coyote Theory</em> secara transparan dengan caching lokal.</li>
-              <li><strong>Behavioral Home Dashboard:</strong> Beranda dinamis dengan carousel artis favorit (affinity analysis), filter chips (Semua, Mix Pribadi, Favorit), dan rekomendasi pintar 1:1 mobile.</li>
-              <li><strong>Playlist Detail & Quick Play:</strong> Modal interaktif daftar putar pribadi, preview cover art, tombol putar cepat, dan mode acak (shuffle).</li>
-              <li><strong>Deterministik Timestamp Like:</strong> Pengurutan lagu favorit berdasarkan timestamp event like (<code>likedAt</code>) seragam dan konsisten di seluruh perangkat.</li>
-              <li><strong>FIFO Background Download Queue:</strong> Antrean unduhan audio offline cerdas dengan proteksi concurrency, progress listener, dan auto-download favorit & playlist.</li>
+              <li><strong>Behavioral Home Dashboard:</strong> Beranda dinamis dengan carousel artis favorit (affinity analysis), filter chips, dan rekomendasi pintar.</li>
+              <li><strong>Playlist Detail & Quick Play:</strong> Modal interaktif daftar putar pribadi, preview cover art, tombol putar cepat, dan mode acak.</li>
+              <li><strong>FIFO Background Download Queue:</strong> Antrean unduhan audio offline cerdas dengan proteksi concurrency.</li>
             </ul>
           </div>
 
