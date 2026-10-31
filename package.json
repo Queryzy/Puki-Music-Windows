@@ -1,10 +1,11 @@
 {
   "name": "puki-music-windows",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Native Windows Client for Puki Music with Two-Tier Discography Engine & E2EE Sync",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
+    "bundle": "tsc && vite build",
     "build": "tsc && vite build && electron-builder --publish never",
     "build:electron": "electron-builder --win nsis",
     "typecheck": "tsc --noEmit"

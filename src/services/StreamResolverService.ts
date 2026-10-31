@@ -1,85 +1,93 @@
-export interface StreamFormat {
-  url: string
-  itag: number
-  mimeType: string
-  bitrate: number
-  contentLength?: number
-}
-
-const STREAM_CLIENTS = [
-  {
-    clientName: 'ANDROID_TESTSUITE',
-    clientVersion: '1.9',
-    osName: 'Android',
-    osVersion: '12'
-  },
-  {
-    clientName: 'ANDROID_VR',
-    clientVersion: '1.60.19',
-    osName: 'Android',
-    osVersion: '12'
-  },
-  {
-    clientName: 'WEB_REMIX',
-    clientVersion: '1.20240401.01.00',
-    hl: 'id',
-    gl: 'ID'
-  }
-]
-
 export class StreamResolverService {
+  private static cache = new Map<string, { url: string; timestamp: number }>()
+
   /**
-   * Resolve Fast Stream URL (Priority: itag 18 MP4/AAC ~7MB/s, fallback: itag 251 WebM/Opus)
+   * Resolve Direct Fast Stream Audio URL
+   * Prioritas:
+   * 1. Direct Web-Embed Audio / Video (itag 18 / 140 / 251)
+   * 2. Piped / Invidious Multi-Instance Fallback (No-Cipher direct audio)
    */
   static async resolveStreamUrl(videoId: string): Promise<string | null> {
-    for (const client of STREAM_CLIENTS) {
-      try {
-        const payload = {
-          context: { client },
-          videoId,
-          contentCheckOk: true,
-          racyCheckOk: true
-        }
+    const cached = this.cache.get(videoId)
+    if (cached && Date.now() - cached.timestamp < 3 * 3600 * 1000) {
+      return cached.url
+    }
 
-        const res = await fetch('https://music.youtube.com/youtubei/v1/player', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          },
-          body: JSON.stringify(payload)
+    // 1. Coba multi-instance API public
+    const instances = [
+      'https://pipedapi.kavin.rocks',
+      'https://api.piped.privacydev.net',
+      'https://piped-api.lunar.icu',
+      'https://api-piped.mha.fi'
+    ]
+
+    for (const inst of instances) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 4000)
+
+        const res = await fetch(`${inst}/streams/${videoId}`, {
+          signal: controller.signal
         })
+        clearTimeout(timeoutId)
 
         if (!res.ok) continue
         const data = await res.json()
-        const streamingData = data?.streamingData
-        if (!streamingData) continue
+        const audioStreams = data.audioStreams || []
+        if (audioStreams.length > 0) {
+          // Cari format opus/m4a kualitas terbaik
+          const best = audioStreams.find((s: any) => s.mimeType?.includes('audio/mp4') || s.mimeType?.includes('audio/webm')) || audioStreams[0]
+          if (best?.url) {
+            this.cache.set(videoId, { url: best.url, timestamp: Date.now() })
+            return best.url
+          }
+        }
+      } catch {
+        // Fallback ke instance berikutnya
+      }
+    }
 
-        const formats: any[] = [
-          ...(streamingData.formats || []),
-          ...(streamingData.adaptiveFormats || [])
+    // 2. Fallback YouTube InnerTube Mobile Client Direct
+    try {
+      const payload = {
+        context: {
+          client: {
+            clientName: 'ANDROID',
+            clientVersion: '21.03.36',
+            androidSdkVersion: 34,
+            hl: 'en',
+            gl: 'US'
+          }
+        },
+        videoId,
+        contentCheckOk: true,
+        racyCheckOk: true
+      }
+
+      const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        body: JSON.stringify(payload)
+      })
+
+      if (res.ok) {
+        const data = await res.json()
+        const formats = [
+          ...(data?.streamingData?.formats || []),
+          ...(data?.streamingData?.adaptiveFormats || [])
         ]
 
-        // 1. Coba itag 18 (MP4/AAC, unthrottled fast-stream)
-        const itag18 = formats.find(f => f.itag === 18 && f.url)
-        if (itag18?.url) {
-          return itag18.url
+        const direct = formats.find((f: any) => f.url && (f.itag === 140 || f.itag === 18 || f.itag === 251))
+        if (direct?.url) {
+          this.cache.set(videoId, { url: direct.url, timestamp: Date.now() })
+          return direct.url
         }
-
-        // 2. Coba audio-only formats (itag 140, 251, dll)
-        const audioFormat = formats.find(f => (f.itag === 140 || f.itag === 251) && f.url)
-        if (audioFormat?.url) {
-          return audioFormat.url
-        }
-
-        // 3. Ambil format apapun yang memiliki direct audio URL
-        const fallback = formats.find(f => f.url && (f.mimeType || '').startsWith('audio/'))
-        if (fallback?.url) {
-          return fallback.url
-        }
-      } catch (err) {
-        console.warn(`Client ${client.clientName} failed to resolve stream:`, err)
       }
+    } catch {
+      // Ignore
     }
 
     return null

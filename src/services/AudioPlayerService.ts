@@ -1,11 +1,15 @@
 import { Track } from './YouTubeMusicService'
 import { StreamResolverService } from './StreamResolverService'
+import { DownloadEngineService } from './DownloadEngineService'
+import { LocalMusicStore } from './LocalMusicStore'
 
 export class AudioPlayerService {
   private static audio: HTMLAudioElement | null = null
   private static currentTrack: Track | null = null
   private static playlist: Track[] = []
   private static currentIndex: number = -1
+  private static isLoadingStream: boolean = false
+  private static errorMessage: string | null = null
   private static listeners: Set<() => void> = new Set()
 
   static init() {
@@ -18,10 +22,12 @@ export class AudioPlayerService {
     this.audio.addEventListener('ended', () => this.next())
     this.audio.addEventListener('error', (e) => {
       console.error('Audio playback error:', e)
+      this.errorMessage = 'Gagal memutar audio'
+      this.isLoadingStream = false
       this.notify()
     })
 
-    // Listen to Windows Hardware Media Keys via Preload
+    // Windows Media Keys Setup via Preload
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
       (window as any).electronAPI.onMediaCommand((cmd: string) => {
         if (cmd === 'play-pause') this.togglePlay()
@@ -31,7 +37,7 @@ export class AudioPlayerService {
       })
     }
 
-    // Windows SMTC (System Media Transport Controls) integration via MediaSession API
+    // Windows SMTC MediaSession API
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => this.play())
       navigator.mediaSession.setActionHandler('pause', () => this.pause())
@@ -53,17 +59,36 @@ export class AudioPlayerService {
     }
 
     this.currentTrack = track
+    this.isLoadingStream = true
+    this.errorMessage = null
     this.notify()
 
-    // Resolve Fast Stream
-    const streamUrl = await StreamResolverService.resolveStreamUrl(track.id)
+    LocalMusicStore.recordPlay(track)
+
+    // Cek apakah ada file offline lokal
+    let streamUrl = await DownloadEngineService.getOfflineAudioUrl(track.id)
+    if (!streamUrl) {
+      streamUrl = await StreamResolverService.resolveStreamUrl(track.id)
+    }
+
     if (!streamUrl || !this.audio) {
-      console.error('Failed to resolve stream for track:', track.title)
+      this.isLoadingStream = false
+      this.errorMessage = 'Gagal memuat stream audio'
+      this.notify()
       return
     }
 
     this.audio.src = streamUrl
-    this.audio.play().catch(console.error)
+    this.audio.play().then(() => {
+      this.isLoadingStream = false
+      this.errorMessage = null
+      this.notify()
+    }).catch((err) => {
+      console.error('Play error:', err)
+      this.isLoadingStream = false
+      this.errorMessage = 'Playback ditolak sistem'
+      this.notify()
+    })
 
     // Update Windows SMTC metadata
     if ('mediaSession' in navigator) {
@@ -77,7 +102,7 @@ export class AudioPlayerService {
       })
     }
 
-    // Update Windows Taskbar & Title
+    // Update Windows Taskbar
     if (typeof window !== 'undefined' && (window as any).electronAPI) {
       (window as any).electronAPI.updatePlaybackState({
         isPlaying: true,
@@ -149,7 +174,9 @@ export class AudioPlayerService {
       isPlaying: this.audio ? !this.audio.paused : false,
       currentTime: this.audio ? this.audio.currentTime : 0,
       duration: this.audio && !isNaN(this.audio.duration) ? this.audio.duration : (this.currentTrack?.durationSeconds || 0),
-      volume: this.audio ? this.audio.volume : 1
+      volume: this.audio ? this.audio.volume : 1,
+      isLoading: this.isLoadingStream,
+      error: this.errorMessage
     }
   }
 

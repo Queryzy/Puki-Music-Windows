@@ -16,9 +16,13 @@ export interface Album {
   url: string
 }
 
-export interface SearchResult {
+export interface Playlist {
+  id: string
+  name: string
+  trackCount: number
+  autoDownload: boolean
+  createdAt: number
   tracks: Track[]
-  albums: Album[]
 }
 
 const INNERTUBE_CLIENT = {
@@ -43,7 +47,7 @@ export class YouTubeMusicService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
       },
       body: JSON.stringify(payload)
     })
@@ -56,7 +60,7 @@ export class YouTubeMusicService {
   }
 
   /**
-   * Search Tracks via InnerTube WEB_REMIX
+   * Search Tracks via InnerTube WEB_REMIX (Strict Song Filter)
    */
   static async searchTracks(query: string): Promise<Track[]> {
     try {
@@ -75,38 +79,73 @@ export class YouTubeMusicService {
           if (!renderer) continue
 
           const flexColumns = renderer.flexColumns || []
-          const title = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.title?.runs?.[0]?.text || ''
-          const videoId = renderer.playlistItemData?.videoId || ''
-          
-          let artist = ''
-          let durSec = 0
-          
-          const col1Runs = flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.title?.runs || []
-          if (col1Runs.length > 0) {
-            artist = col1Runs[0]?.text || ''
+          if (flexColumns.length === 0) continue
+
+          // Title parsing (field .text.runs[0] or .title.runs[0])
+          const col0 = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer
+          const col0Runs = col0?.text?.runs || col0?.title?.runs || []
+          const title = col0Runs[0]?.text || ''
+
+          // Video ID parsing
+          let videoId = renderer.playlistItemData?.videoId || ''
+          if (!videoId) {
+            const playBtn = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
+            videoId = playBtn?.playNavigationEndpoint?.watchEndpoint?.videoId || ''
+          }
+          if (!videoId) {
+            videoId = col0Runs[0]?.navigationEndpoint?.watchEndpoint?.videoId || ''
           }
 
-          for (const r of col1Runs) {
-            const txt = (r.text || '').trim()
-            if (txt.includes(':')) {
-              const parts = txt.split(':')
+          // Artist parsing
+          let artist = ''
+          let durSec = 0
+          if (flexColumns.length > 1) {
+            const col1 = flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer
+            const col1Runs = col1?.text?.runs || col1?.title?.runs || []
+            if (col1Runs.length > 0) {
+              artist = col1Runs[0]?.text || ''
+            }
+            for (const r of col1Runs) {
+              const txt = (r.text || '').trim()
+              if (txt.includes(':')) {
+                const parts = txt.split(':')
+                if (parts.length === 2) {
+                  durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
+                } else if (parts.length === 3) {
+                  durSec = (parseInt(parts[0], 10) || 0) * 3600 + (parseInt(parts[1], 10) || 0) * 60 + (parseInt(parts[2], 10) || 0)
+                }
+              }
+            }
+          }
+
+          // Duration fallback
+          if (durSec === 0) {
+            const fixedCols = renderer.fixedColumns || []
+            const durRuns = fixedCols[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs || []
+            const durStr = durRuns[0]?.text || ''
+            if (durStr.includes(':')) {
+              const parts = durStr.split(':')
               if (parts.length === 2) {
                 durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
               }
             }
           }
 
+          // Thumbnail parsing
           let thumb = ''
           const thumbs = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || []
           if (thumbs.length > 0) {
             thumb = thumbs[thumbs.length - 1].url || ''
+          }
+          if (thumb.includes('=w') && thumb.includes('-h')) {
+            thumb = thumb.replace(/=w\d+-h\d+.*/, '=w544-h544-l90-rj')
           }
 
           if (videoId && title) {
             tracks.push({
               id: videoId,
               title,
-              artist,
+              artist: artist || 'YouTube Music',
               durationSeconds: durSec,
               thumbnailUrl: thumb
             })
@@ -138,7 +177,7 @@ export class YouTubeMusicService {
         if (shelf) {
           const nav = shelf.title?.runs?.[0]?.navigationEndpoint
           const browseId = nav?.browseEndpoint?.browseId
-          if (browseId && browseId.startsWith('UC')) {
+          if (browseId && (browseId.startsWith('UC') || browseId.startsWith('FEmusic_library_privately_owned_artist'))) {
             artistBrowseId = browseId
             break
           }
@@ -193,18 +232,22 @@ export class YouTubeMusicService {
             if (thumbs.length > 0) {
               thumbUrl = thumbs[thumbs.length - 1].url || ''
             }
+            if (thumbUrl.includes('=w') && thumbUrl.includes('-h')) {
+              thumbUrl = thumbUrl.replace(/=w\d+-h\d+.*/, '=w544-h544-l90-rj')
+            }
 
             if (itemBrowseId.startsWith('MPREb_') && title) {
               albums.push({
                 id: itemBrowseId,
                 title,
-                artist: artistName,
+                artist: artistName || 'Artis Resmi',
                 trackCount: 0,
                 thumbnailUrl: thumbUrl,
                 url: itemBrowseId
               })
             }
           }
+          break
         }
       }
 
@@ -231,22 +274,28 @@ export class YouTubeMusicService {
           if (!renderer) continue
 
           const flexColumns = renderer.flexColumns || []
-          const title = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.title?.runs?.[0]?.text || ''
-          const nav = renderer.navigationEndpoint?.browseEndpoint
-          const browseId = nav?.browseId || ''
+          const col0 = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer
+          const col0Runs = col0?.text?.runs || col0?.title?.runs || []
+          const title = col0Runs[0]?.text || ''
+          const browseId = renderer.navigationEndpoint?.browseEndpoint?.browseId || ''
 
           let artistName = ''
           let isExcluded = false
 
-          const col1Runs = flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.title?.runs || []
-          for (const r of col1Runs) {
-            const txt = (r.text || '').toLowerCase()
-            if (txt.includes('single') || txt.includes('singel') || txt.includes('audiobook') || txt.includes('buku audio')) {
-              isExcluded = true
-              break
+          if (flexColumns.length > 1) {
+            const col1 = flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer
+            const subtitleRuns = col1?.text?.runs || col1?.title?.runs || []
+            for (const r of subtitleRuns) {
+              const text = (r.text || '').toLowerCase().trim()
+              if (text === 'single' || text === 'singel' || text === 'buku audio' || text === 'audiobook') {
+                isExcluded = true
+                break
+              }
             }
-            if (artistName === '' && !txt.includes('•') && !txt.includes('album') && !txt.includes('ep')) {
-              artistName = r.text || ''
+            if (subtitleRuns.length > 2) {
+              artistName = subtitleRuns[2]?.text || subtitleRuns[0]?.text || ''
+            } else if (subtitleRuns.length > 0) {
+              artistName = subtitleRuns[0]?.text || ''
             }
           }
 
@@ -256,6 +305,9 @@ export class YouTubeMusicService {
           const thumbs = renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || []
           if (thumbs.length > 0) {
             thumbUrl = thumbs[thumbs.length - 1].url || ''
+          }
+          if (thumbUrl.includes('=w') && thumbUrl.includes('-h')) {
+            thumbUrl = thumbUrl.replace(/=w\d+-h\d+.*/, '=w544-h544-l90-rj')
           }
 
           if (browseId.startsWith('MPREb_') && title) {
@@ -278,7 +330,7 @@ export class YouTubeMusicService {
   }
 
   /**
-   * Get Album Tracklist from MPREb_...
+   * Get Full Album Tracklist from browseId (MPREb_...)
    */
   static async getAlbumTracks(browseId: string): Promise<Track[]> {
     try {
@@ -286,14 +338,32 @@ export class YouTubeMusicService {
       const tracks: Track[] = []
 
       let albumCover = ''
-      const header = data?.header?.musicDetailHeaderRenderer
-      const headerThumbs = header?.thumbnail?.croppedMusicThumbnailRenderer?.thumbnail?.thumbnails || []
-      if (headerThumbs.length > 0) {
-        albumCover = headerThumbs[headerThumbs.length - 1].url || ''
+      let defaultArtist = ''
+
+      const twoCol = data?.contents?.twoColumnBrowseResultsRenderer
+      const headerTabs = twoCol?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || []
+      if (headerTabs.length > 0) {
+        const header = headerTabs[0]?.musicResponsiveHeaderRenderer
+        const headerThumbs = header?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || []
+        if (headerThumbs.length > 0) {
+          albumCover = headerThumbs[headerThumbs.length - 1].url || ''
+        }
+        const subRuns = header?.subtitle?.runs || []
+        for (const run of subRuns) {
+          const pageType = run?.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
+          if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
+            defaultArtist = run.text || ''
+            break
+          }
+        }
       }
 
-      const sections = data?.contents?.singleColumnBrowseResultsRenderer?.tabs?.[0]?.tabRenderer?.content?.sectionListRenderer?.contents || []
-      for (const sec of sections) {
+      if (albumCover.includes('=w') && albumCover.includes('-h')) {
+        albumCover = albumCover.replace(/=w\d+-h\d+.*/, '=w544-h544-l90-rj')
+      }
+
+      const secContents = twoCol?.secondaryContents?.sectionListRenderer?.contents || []
+      for (const sec of secContents) {
         const shelf = sec?.musicShelfRenderer
         if (!shelf) continue
 
@@ -303,23 +373,36 @@ export class YouTubeMusicService {
           if (!renderer) continue
 
           const flexColumns = renderer.flexColumns || []
-          const trackTitle = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer?.title?.runs?.[0]?.text || ''
-          const videoId = renderer.playlistItemData?.videoId || ''
+          const col0 = flexColumns[0]?.musicResponsiveListItemFlexColumnRenderer
+          const col0Runs = col0?.text?.runs || col0?.title?.runs || []
+          const trackTitle = col0Runs[0]?.text || ''
 
-          let trackArtist = ''
-          let durSec = 0
-          const col1Runs = flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer?.title?.runs || []
-          if (col1Runs.length > 0) {
-            trackArtist = col1Runs[0]?.text || ''
+          const playBtn = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer
+          const videoId = playBtn?.playNavigationEndpoint?.watchEndpoint?.videoId || renderer.playlistItemData?.videoId || ''
+
+          let trackArtist = defaultArtist
+          if (flexColumns.length > 1) {
+            const col1 = flexColumns[1]?.musicResponsiveListItemFlexColumnRenderer
+            const col1Runs = col1?.text?.runs || col1?.title?.runs || []
+            for (const r of col1Runs) {
+              const pageType = r?.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
+              if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
+                trackArtist = r.text || trackArtist
+                break
+              }
+            }
           }
 
-          for (const r of col1Runs) {
-            const txt = (r.text || '').trim()
-            if (txt.includes(':')) {
-              const parts = txt.split(':')
-              if (parts.length === 2) {
-                durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
-              }
+          let durSec = 0
+          const fixCols = renderer.fixedColumns || []
+          const durRuns = fixCols[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs || []
+          const durStr = durRuns[0]?.text || ''
+          if (durStr.includes(':')) {
+            const parts = durStr.split(':')
+            if (parts.length === 2) {
+              durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
+            } else if (parts.length === 3) {
+              durSec = (parseInt(parts[0], 10) || 0) * 3600 + (parseInt(parts[1], 10) || 0) * 60 + (parseInt(parts[2], 10) || 0)
             }
           }
 
@@ -327,7 +410,7 @@ export class YouTubeMusicService {
             tracks.push({
               id: videoId,
               title: trackTitle,
-              artist: trackArtist,
+              artist: trackArtist || 'Artis Resmi',
               durationSeconds: durSec,
               thumbnailUrl: albumCover
             })
@@ -336,8 +419,16 @@ export class YouTubeMusicService {
       }
 
       return tracks
-    } catch {
+    } catch (err) {
+      console.error('getAlbumTracks failed:', err)
       return []
     }
+  }
+
+  /**
+   * Get Home Trending Songs (Quick Picks Indonesia)
+   */
+  static async getHomeTrending(): Promise<Track[]> {
+    return this.searchTracks('Lagu Populer Indonesia')
   }
 }
