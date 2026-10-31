@@ -436,10 +436,12 @@ export class LocalMusicStore {
     }
 
     if (changed) {
-      // Sort deterministik: jika likedAt tersedia urutkan terbaru ke terlama, jika tidak urutkan sesuai posisi masuk
+      // Sort deterministik: likedAt terbesar (terbaru) selalu di atas (#1) 1:1 Android & iOS
       favs.sort((a, b) => {
-        if (a.likedAt && b.likedAt) return b.likedAt - a.likedAt
-        return 0
+        const timeA = a.likedAt || 0
+        const timeB = b.likedAt || 0
+        if (timeA !== timeB) return timeB - timeA
+        return (a.title || '').localeCompare(b.title || '')
       })
       localStorage.setItem(this.KEY_FAVORITES, JSON.stringify(favs))
       localStorage.setItem(this.KEY_PLAYLISTS, JSON.stringify(playlists))

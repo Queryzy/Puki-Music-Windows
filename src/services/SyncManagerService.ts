@@ -36,7 +36,8 @@ export class SyncManagerService {
   static forceResetSync() {
     localStorage.removeItem(this.KEY_LAST_SEQ)
     localStorage.removeItem(LocalMusicStore.KEY_FAVORITES)
-    this.syncCycle(true)
+    LocalMusicStore.notify()
+    return this.syncCycle(true)
   }
 
   static subscribe(fn: (s: SyncStatus) => void) {
@@ -160,7 +161,7 @@ export class SyncManagerService {
       const localPlaylists = LocalMusicStore.getPlaylists()
 
       // Jika user minta forceFull, atau jika store lokal masih kosong, paksa pull dari seq 0
-      let currentSeq = (forceFullPull || (localFavs.length === 0 && localPlaylists.length === 0))
+      let currentSeq = forceFullPull
         ? 0
         : parseInt(localStorage.getItem(this.KEY_LAST_SEQ) || '0', 10)
 
@@ -226,8 +227,8 @@ export class SyncManagerService {
               eventObj.track.relaySeq = ev.seq
             }
 
-            // Abaikan echo balik event milik perangkat Windows ini sendiri
-            if (eventObj.device_id !== deviceId) {
+            // Pada mode forceFullPull, proses semua event termasuk milik device sendiri agar rebuild utuh
+            if (forceFullPull || eventObj.device_id !== deviceId) {
               incomingEvents.push(eventObj)
             }
           } catch (e) {

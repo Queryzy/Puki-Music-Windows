@@ -1,6 +1,6 @@
 {
   "name": "puki-music-windows",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Native Windows Client for Puki Music with Two-Tier Discography Engine & E2EE Sync",
   "main": "dist-electron/main.js",
   "scripts": {

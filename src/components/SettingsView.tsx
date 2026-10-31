@@ -389,17 +389,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4 text-xs divide-y divide-white/[0.03]">
           <div className="pt-2 space-y-1.5">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-orange-400">v1.0.5</span>
+              <span className="font-bold text-orange-400">v1.0.6</span>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
                 Terbaru
               </span>
             </div>
             <ul className="list-disc list-inside text-zinc-300 space-y-1">
-              <li><strong>Resilient Direct InnerTube Stream Resolver:</strong> Bypass server Piped publik yang rentan down/timeout. Mengambil langsung stream audio m4a (itag 140) via InnerTube <code>ANDROID_VR</code> 1:1 mobile dengan auto-match katalog Deezer/non-YT.</li>
+              <li><strong>Deterministic Favorite Parity:</strong> Sorting deterministik <code>likedAt DESC</code> 1:1 identik dengan Android dan iOS.</li>
+              <li><strong>Re-Sync Bersih Engine:</strong> Tombol Re-Sync Bersih di Pengaturan yang membangun ulang seluruh data riwayat favorit dari awal relay tanpa meninggalkan cache urutan lama.</li>
+            </ul>
+          </div>
+
+          <div className="pt-4 space-y-1.5">
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-zinc-400">v1.0.5</span>
+            </div>
+            <ul className="list-disc list-inside text-zinc-400 space-y-1">
+              <li><strong>Resilient Direct InnerTube Stream Resolver:</strong> Direct audio m4a (itag 140) via InnerTube <code>ANDROID_VR</code> 1:1 mobile dengan auto-match katalog Deezer/non-YT.</li>
               <li><strong>Artist Discography Modal Sheet:</strong> Akses diskografi lengkap penyanyi (Album Studio dan Lagu Populer) langsung dari PlayerBar dan NowPlaying.</li>
-              <li><strong>Silent Background Auto-Updater:</strong> Dukungan penuh pembaruan otomatis di background via <code>electron-updater</code> lengkap dengan progress bar dan tombol restart instalasi.</li>
-              <li><strong>Deterministik Liked Music:</strong> Urutan lagu favorit terbaru langsung berada di urutan teratas (#1).</li>
-              <li><strong>Dynamic Version Injection:</strong> Sinkronisasi nomor versi UI langsung dengan build release.</li>
+              <li><strong>Silent Background Auto-Updater:</strong> Pembaruan otomatis via <code>electron-updater</code> lengkap dengan progress bar.</li>
             </ul>
           </div>
 
