@@ -47,7 +47,7 @@ export default function App() {
   // Settings state
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(LocalMusicStore.getSettings())
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(SyncManagerService.getStatus())
-  const [appVersion, setAppVersion] = useState('1.0.8')
+  const [appVersion, setAppVersion] = useState('1.0.9')
   const [latestRelease, setLatestRelease] = useState<{ tag: string; downloadUrl: string } | null>(null)
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)

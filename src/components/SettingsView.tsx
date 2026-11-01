@@ -394,6 +394,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         <div className="space-y-2 text-xs">
+          {/* v1.0.9 */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.01] overflow-hidden transition">
+            <button
+              onClick={() => toggleChangelog('v1.0.9')}
+              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
+            >
+              <div className="flex items-center space-x-2.5">
+                <span className="font-bold text-sm text-orange-400">v1.0.9</span>
+                <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
+                  Terbaru
+                </span>
+                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Antarmuka Ringkas Dropdown & Single Setup Artifact</span>
+              </div>
+              {expandedChangelogVersion === 'v1.0.9' ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-500" />
+              )}
+            </button>
+            {expandedChangelogVersion === 'v1.0.9' && (
+              <div className="p-3.5 pt-0 border-t border-white/5 mt-1 text-zinc-300">
+                <ul className="list-disc list-inside space-y-1.5 leading-relaxed">
+                  <li><strong>Dropdown Collapsible Changelog:</strong> Seluruh riwayat catatan rilis kini tampil dalam akordeon rapi yang terlipat default agar menu Pengaturan tidak memanjang.</li>
+                  <li><strong>Single Clean Installer:</strong> Eliminasi file ganda pada GitHub Releases dengan standardisasi nama artefak resmi <code>Puki-Music-Setup-[version].exe</code>.</li>
+                </ul>
+              </div>
+            )}
+          </div>
+
           {/* v1.0.8 */}
           <div className="rounded-2xl border border-white/5 bg-white/[0.01] overflow-hidden transition">
             <button
@@ -401,10 +430,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
             >
               <div className="flex items-center space-x-2.5">
-                <span className="font-bold text-sm text-orange-400">v1.0.8</span>
-                <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
-                  Terbaru
-                </span>
+                <span className="font-bold text-sm text-zinc-200">v1.0.8</span>
                 <span className="text-zinc-500 text-[11px] hidden sm:inline">• Kalibrasi Lirik, Quick Play & Album Playlists</span>
               </div>
               {expandedChangelogVersion === 'v1.0.8' ? (
