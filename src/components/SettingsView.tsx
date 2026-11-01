@@ -56,7 +56,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [showQrModal, setShowQrModal] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
   const [copiedLink, setCopiedLink] = useState(false)
-  const [expandedChangelogVersion, setExpandedChangelogVersion] = useState<string | null>('v1.0.8')
+  const [expandedChangelogVersion, setExpandedChangelogVersion] = useState<string | null>(null)
 
   const toggleChangelog = (ver: string) => {
     setExpandedChangelogVersion(prev => prev === ver ? null : ver)
@@ -405,7 +405,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
                   Terbaru
                 </span>
-                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Kalibrasi Lirik & Album Playlists</span>
+                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Kalibrasi Lirik, Quick Play & Album Playlists</span>
               </div>
               {expandedChangelogVersion === 'v1.0.8' ? (
                 <ChevronUp className="w-4 h-4 text-zinc-400" />
