@@ -1,5 +1,5 @@
 import React from 'react'
-import { Disc, Music, Heart, Download, Check, RefreshCw } from 'lucide-react'
+import { Disc, Music, Heart, Download, Play, Check, RefreshCw } from 'lucide-react'
 import { Track, Album } from '../services/YouTubeMusicService'
 import { AudioPlayerService } from '../services/AudioPlayerService'
 
@@ -9,6 +9,7 @@ interface SearchViewProps {
   tracks: Track[]
   downloadingIds: Set<string>
   onOpenAlbum: (album: Album) => void
+  onPlayAlbumDirect?: (album: Album) => void
   onToggleFavorite: (track: Track, e?: React.MouseEvent) => void
   onDownloadTrack: (track: Track, e?: React.MouseEvent) => void
   isFavorite: (trackId: string) => boolean
@@ -23,6 +24,7 @@ export const SearchView: React.FC<SearchViewProps> = ({
   tracks,
   downloadingIds,
   onOpenAlbum,
+  onPlayAlbumDirect,
   onToggleFavorite,
   onDownloadTrack,
   isFavorite,
@@ -64,6 +66,18 @@ export const SearchView: React.FC<SearchViewProps> = ({
                     alt={album.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                   />
+                  {onPlayAlbumDirect && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onPlayAlbumDirect(album)
+                      }}
+                      title="Putar Album Sekarang"
+                      className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-orange-500 hover:bg-orange-400 text-white flex items-center justify-center shadow-lg shadow-black/50 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition duration-200 z-10 active:scale-95"
+                    >
+                      <Play className="w-4 h-4 fill-white ml-0.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-xs text-zinc-100 truncate group-hover:text-orange-400 transition">

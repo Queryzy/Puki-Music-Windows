@@ -60,17 +60,17 @@ export const HomeView: React.FC<HomeViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Banner Rekomendasi Pintar */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-orange-600/25 via-amber-600/15 to-transparent border border-orange-500/20 flex items-center justify-between">
+      <div className="p-6 rounded-3xl bg-gradient-to-r from-orange-600/20 via-amber-600/10 to-transparent border border-orange-500/15 flex items-center justify-between">
         <div>
-          <span className="px-3 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider bg-orange-500/20 text-orange-400 font-semibold border border-orange-500/30">
-            Rekomendasi Berbasis Perilaku
+          <span className="px-3 py-1 rounded-full text-[10px] font-medium bg-orange-500/15 text-orange-400 border border-orange-500/25">
+            Musik Pilihan Untukmu
           </span>
-          <h2 className="text-2xl font-bold text-white mt-2">Selamat Datang Kembali</h2>
-          <p className="text-xs text-zinc-400 mt-1">
-            Menyesuaikan lagu dan artis favorit Anda secara otomatis di seluruh ekosistem Puki Music.
+          <h2 className="text-2xl font-bold text-white mt-2.5">Musik Favoritmu</h2>
+          <p className="text-xs text-zinc-300 mt-1 max-w-lg leading-relaxed">
+            Kumpulan lagu dan musisi yang pas nemenin harimu kapan saja.
           </p>
         </div>
-        <Sparkles className="w-12 h-12 text-orange-500/40 hidden md:block" />
+        <Sparkles className="w-10 h-10 text-orange-500/30 hidden md:block" />
       </div>
 
       {/* Behavioral Filter Chips */}

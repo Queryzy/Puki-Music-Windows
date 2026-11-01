@@ -43,6 +43,8 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null)
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false)
   const [useRomaji, setUseRomaji] = useState(false)
+  const [lyricOffset, setLyricOffset] = useState(0)
+  const [showSyncBar, setShowSyncBar] = useState(false)
   const lyricsContainerRef = useRef<HTMLDivElement>(null)
   const activeLineRef = useRef<HTMLDivElement>(null)
 
@@ -56,11 +58,25 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
       setLyrics(null)
       return
     }
+    setLyricOffset(LyricsService.getOffset(track.id))
     setIsLoadingLyrics(true)
     LyricsService.fetchLyrics(track.id, track.title, track.artist, track.durationSeconds, force).then((res) => {
       setLyrics(res)
       setIsLoadingLyrics(false)
     })
+  }
+
+  const handleAdjustOffset = (delta: number) => {
+    if (!track) return
+    const newOffset = Math.round((lyricOffset + delta) * 10) / 10
+    setLyricOffset(newOffset)
+    LyricsService.setOffset(track.id, newOffset)
+  }
+
+  const handleResetOffset = () => {
+    if (!track) return
+    setLyricOffset(0)
+    LyricsService.setOffset(track.id, 0)
   }
 
   useEffect(() => {
@@ -79,11 +95,12 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
 
   if (!isOpen || !track) return null
 
-  // Cari baris lirik aktif berdasarkan currentTime
+  // Cari baris lirik aktif berdasarkan currentTime disesuaikan dengan offset
   let activeIndex = -1
   if (lyrics?.synced && lyrics.lines.length > 0) {
+    const adjustedCurrentTime = playerState.currentTime - lyricOffset
     for (let i = 0; i < lyrics.lines.length; i++) {
-      if (playerState.currentTime >= lyrics.lines[i].time) {
+      if (adjustedCurrentTime >= lyrics.lines[i].time) {
         activeIndex = i
       } else {
         break
@@ -234,37 +251,105 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
         <div className="w-1/2 flex flex-col bg-white/[0.02] border border-white/5 rounded-3xl p-6 overflow-hidden">
           {activeTab === 'lyrics' ? (
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between pb-3 mb-2 border-b border-white/5">
-                <span className="text-[11px] font-mono text-zinc-400">
-                  {lyrics?.synced ? 'Karaoke Sync (LRCLIB)' : lyrics ? 'Plain Text' : 'Status'}
-                </span>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setUseRomaji(!useRomaji)}
-                    title="Alih Aksara CJK ke Romaji Latin"
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold flex items-center space-x-1.5 transition border ${
-                      useRomaji
-                        ? 'bg-orange-500 text-white border-orange-400'
-                        : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white'
-                    }`}
-                  >
-                    <Languages className="w-3.5 h-3.5" />
-                    <span>{useRomaji ? 'ROMAJI: ON' : 'ROMAJI: OFF'}</span>
-                  </button>
+              <div className="flex flex-col pb-3 mb-2 border-b border-white/5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-medium text-zinc-400">
+                      {lyrics?.synced ? 'Lirik Tersinkron' : lyrics ? 'Teks Biasa' : 'Mencari...'}
+                    </span>
+                    {lyricOffset !== 0 && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                        {lyricOffset > 0 ? `+${lyricOffset.toFixed(1)}s` : `${lyricOffset.toFixed(1)}s`}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    {lyrics?.synced && (
+                      <button
+                        onClick={() => setShowSyncBar(!showSyncBar)}
+                        title="Kalibrasi Waktu Lirik"
+                        className={`px-2.5 py-1 rounded-xl text-[11px] font-medium border transition flex items-center space-x-1 ${
+                          showSyncBar || lyricOffset !== 0
+                            ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
+                            : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        <span>⏱️ Sync</span>
+                      </button>
+                    )}
 
-                  <button
-                    onClick={() => {
-                      if (track) {
-                        LyricsService.clearCache(track.id)
-                        loadLyrics(true)
-                      }
-                    }}
-                    title="Segarkan Ulang Lirik"
-                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition"
-                  >
-                    <RotateCw className="w-3.5 h-3.5" />
-                  </button>
+                    <button
+                      onClick={() => setUseRomaji(!useRomaji)}
+                      title="Alih Aksara CJK ke Romaji Latin"
+                      className={`px-2.5 py-1 rounded-xl text-[11px] font-medium flex items-center space-x-1.5 transition border ${
+                        useRomaji
+                          ? 'bg-orange-500 text-white border-orange-400 shadow-sm shadow-orange-500/20'
+                          : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      <Languages className="w-3.5 h-3.5" />
+                      <span>{useRomaji ? 'Romaji ON' : 'Romaji'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (track) {
+                          LyricsService.clearCache(track.id)
+                          loadLyrics(true)
+                        }
+                      }}
+                      title="Segarkan Ulang Lirik"
+                      className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5 transition"
+                    >
+                      <RotateCw className={`w-3.5 h-3.5 ${isLoadingLyrics ? 'animate-spin text-orange-400' : ''}`} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Sub-bar Stepper Pengatur Sync Lirik */}
+                {lyrics?.synced && showSyncBar && (
+                  <div className="flex items-center justify-between px-3 py-2 rounded-2xl bg-white/[0.03] border border-white/5 text-xs">
+                    <span className="text-[11px] text-zinc-400 font-medium">Kalibrasi Waktu:</span>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => handleAdjustOffset(-0.5)}
+                        className="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 font-mono text-[11px] transition active:scale-95"
+                      >
+                        -0.5s
+                      </button>
+                      <button
+                        onClick={() => handleAdjustOffset(-0.1)}
+                        className="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 font-mono text-[11px] transition active:scale-95"
+                      >
+                        -0.1s
+                      </button>
+                      <button
+                        onClick={handleResetOffset}
+                        className={`px-2.5 py-0.5 rounded-lg font-mono text-[11px] transition ${
+                          lyricOffset === 0
+                            ? 'bg-zinc-800 text-zinc-500'
+                            : 'bg-orange-500 text-white font-bold active:scale-95'
+                        }`}
+                        title="Reset ke 0.0s"
+                      >
+                        {lyricOffset === 0 ? '0.0s' : `${lyricOffset > 0 ? '+' : ''}${lyricOffset.toFixed(1)}s`}
+                      </button>
+                      <button
+                        onClick={() => handleAdjustOffset(0.1)}
+                        className="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 font-mono text-[11px] transition active:scale-95"
+                      >
+                        +0.1s
+                      </button>
+                      <button
+                        onClick={() => handleAdjustOffset(0.5)}
+                        className="px-2 py-0.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 font-mono text-[11px] transition active:scale-95"
+                      >
+                        +0.5s
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto space-y-5 pr-2">

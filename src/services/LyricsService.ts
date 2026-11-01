@@ -15,6 +15,31 @@ export class LyricsService {
   private static cache: Map<string, LyricsResult | null> = new Map()
 
   /**
+   * Mengambil offset sync lirik per trackId dari localStorage
+   */
+  static getOffset(trackId: string): number {
+    try {
+      const val = localStorage.getItem(`puki_lyric_offset_${trackId}`)
+      return val ? parseFloat(val) || 0 : 0
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * Menyimpan offset sync lirik per trackId ke localStorage
+   */
+  static setOffset(trackId: string, offset: number) {
+    try {
+      if (Math.abs(offset) < 0.05) {
+        localStorage.removeItem(`puki_lyric_offset_${trackId}`)
+      } else {
+        localStorage.setItem(`puki_lyric_offset_${trackId}`, offset.toFixed(1))
+      }
+    } catch {}
+  }
+
+  /**
    * Sanitasi judul lagu agresif 1:1 identik dengan Android LyricsService.kt & iOS
    */
   static cleanTitle(title: string): string {

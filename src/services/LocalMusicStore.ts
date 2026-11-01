@@ -202,6 +202,30 @@ export class LocalMusicStore {
     return newPl
   }
 
+  static saveAlbumAsPlaylist(albumTitle: string, tracks: Track[]): Playlist {
+    const cleanTracks = tracks.map(t => normalizeTrack(t))
+    const pl = this.createPlaylist(albumTitle || 'Album Playlist')
+    const list = this.getPlaylists()
+    const target = list.find(p => p.id === pl.id)
+    if (target) {
+      target.tracks = cleanTracks
+      target.trackCount = cleanTracks.length
+      localStorage.setItem(this.KEY_PLAYLISTS, JSON.stringify(list))
+
+      // Antrekan sinkronisasi outbox per track
+      cleanTracks.forEach(t => {
+        this.queueOutbox('UPDATE_PLAYLIST', {
+          playlistId: pl.id,
+          operation: 'ADD_TRACK',
+          track: t
+        })
+      })
+
+      this.notify()
+    }
+    return target || pl
+  }
+
   static addTrackToPlaylist(playlistId: string, track: Track, fromSync = false) {
     const cleanTrack = normalizeTrack(track)
     const list = this.getPlaylists()

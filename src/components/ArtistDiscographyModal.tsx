@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Disc, Music, Play, Heart, X, RefreshCw } from 'lucide-react'
+import { Disc, Music, Play, Heart, X, RefreshCw, ListPlus } from 'lucide-react'
 import { Track, Album, YouTubeMusicService } from '../services/YouTubeMusicService'
 import { AudioPlayerService } from '../services/AudioPlayerService'
 import { LocalMusicStore } from '../services/LocalMusicStore'
@@ -166,13 +166,25 @@ export const ArtistDiscographyModal: React.FC<ArtistDiscographyModalProps> = ({
                   <p className="text-xs text-zinc-400">{selectedAlbum.artist}</p>
                 </div>
                 {albumTracks.length > 0 && (
-                  <button
-                    onClick={() => AudioPlayerService.playTrack(albumTracks[0], albumTracks)}
-                    className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium flex items-center space-x-1.5 transition"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-white" />
-                    <span>Putar Album</span>
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => AudioPlayerService.playTrack(albumTracks[0], albumTracks)}
+                      className="px-3.5 py-1.5 rounded-full bg-orange-500 hover:bg-orange-400 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-orange-500/25 transition active:scale-95"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-white" />
+                      <span>Putar</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        LocalMusicStore.saveAlbumAsPlaylist(selectedAlbum.title, albumTracks)
+                      }}
+                      className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-zinc-200 border border-white/10 text-xs font-medium flex items-center space-x-1.5 transition active:scale-95"
+                      title="Simpan Album ke Playlist"
+                    >
+                      <ListPlus className="w-3.5 h-3.5 text-orange-400" />
+                      <span>Playlist</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
