@@ -16,7 +16,7 @@
     "desktop-player",
     "innertube"
   ],
-  "author": "Prasetya Nanda (Queryzy)",
+  "author": "Nands (Queryzy)",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^20.11.0",
