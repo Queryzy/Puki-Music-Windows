@@ -13,6 +13,7 @@ interface HomeViewProps {
   isFavorite: (trackId: string) => boolean
   formatTime: (secs: number) => string
   onSearchArtist?: (artistName: string) => void
+  onOpenArtistModal?: (artist: string) => void
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
@@ -23,7 +24,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onToggleFavorite,
   isFavorite,
   formatTime,
-  onSearchArtist
+  onSearchArtist,
+  onOpenArtistModal
 }) => {
   const [activeChip, setActiveChip] = useState<'all' | 'mix' | 'favorites'>('all')
   const topArtists: TopArtist[] = LocalMusicStore.getUserTopArtists(6)
@@ -184,11 +186,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   <Play className="w-5 h-5 text-white fill-current" />
                 </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-zinc-100 truncate group-hover:text-orange-400 transition">
+              <div className="min-w-0 flex-1 pr-4">
+                <p className="font-medium text-sm text-zinc-100 truncate group-hover:text-orange-400 transition">
                   {track.title}
                 </p>
-                <p className="text-xs text-zinc-400 truncate mt-0.5">{track.artist}</p>
+                <p
+                  onClick={(e) => {
+                    if (onOpenArtistModal && track.artist) {
+                      e.stopPropagation()
+                      onOpenArtistModal(track.artist)
+                    }
+                  }}
+                  className={`text-xs text-zinc-400 truncate mt-0.5 ${
+                    onOpenArtistModal ? 'hover:underline hover:text-orange-400 cursor-pointer' : ''
+                  }`}
+                >
+                  {track.artist}
+                </p>
               </div>
               <button
                 onClick={(e) => onToggleFavorite(track, e)}

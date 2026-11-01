@@ -36,6 +36,19 @@ const INNERTUBE_CLIENT = {
 const BASE_URL = 'https://music.youtube.com/youtubei/v1'
 
 export class YouTubeMusicService {
+  private static parseDuration(durStr: string): number {
+    if (!durStr) return 0
+    const clean = durStr.trim().replace(/,/g, '')
+    // Dukungan format mm:ss, hh:mm:ss, maupun mm.ss (InnerTube Indonesia)
+    const normalized = clean.replace(/\./g, ':')
+    const parts = normalized.split(':')
+    if (parts.length === 2) {
+      return (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
+    } else if (parts.length === 3) {
+      return (parseInt(parts[0], 10) || 0) * 3600 + (parseInt(parts[1], 10) || 0) * 60 + (parseInt(parts[2], 10) || 0)
+    }
+    return 0
+  }
   private static async request(endpoint: string, body: Record<string, any>): Promise<any> {
     const payload = {
       context: {
@@ -108,13 +121,9 @@ export class YouTubeMusicService {
             }
             for (const r of col1Runs) {
               const txt = (r.text || '').trim()
-              if (txt.includes(':')) {
-                const parts = txt.split(':')
-                if (parts.length === 2) {
-                  durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
-                } else if (parts.length === 3) {
-                  durSec = (parseInt(parts[0], 10) || 0) * 3600 + (parseInt(parts[1], 10) || 0) * 60 + (parseInt(parts[2], 10) || 0)
-                }
+              if (/^\d+[\.:]\d+$/.test(txt)) {
+                durSec = this.parseDuration(txt)
+                break
               }
             }
           }
@@ -124,11 +133,8 @@ export class YouTubeMusicService {
             const fixedCols = renderer.fixedColumns || []
             const durRuns = fixedCols[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs || []
             const durStr = durRuns[0]?.text || ''
-            if (durStr.includes(':')) {
-              const parts = durStr.split(':')
-              if (parts.length === 2) {
-                durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
-              }
+            if (durStr) {
+              durSec = this.parseDuration(durStr)
             }
           }
 
@@ -349,12 +355,22 @@ export class YouTubeMusicService {
         if (headerThumbs.length > 0) {
           albumCover = headerThumbs[headerThumbs.length - 1].url || ''
         }
-        const subRuns = header?.subtitle?.runs || []
-        for (const run of subRuns) {
-          const pageType = run?.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
-          if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
-            defaultArtist = run.text || ''
-            break
+
+        // 1. Ekstraksi nama artis dari straplineTextOne (paling akurat)
+        const straplineRuns = header?.straplineTextOne?.runs || []
+        if (straplineRuns.length > 0 && straplineRuns[0]?.text) {
+          defaultArtist = straplineRuns[0].text
+        }
+
+        // 2. Fallback: cari di subtitle runs jika strapline kosong
+        if (!defaultArtist) {
+          const subRuns = header?.subtitle?.runs || []
+          for (const run of subRuns) {
+            const pageType = run?.navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType
+            if (pageType === 'MUSIC_PAGE_TYPE_ARTIST') {
+              defaultArtist = run.text || ''
+              break
+            }
           }
         }
       }
@@ -398,13 +414,8 @@ export class YouTubeMusicService {
           const fixCols = renderer.fixedColumns || []
           const durRuns = fixCols[0]?.musicResponsiveListItemFixedColumnRenderer?.text?.runs || []
           const durStr = durRuns[0]?.text || ''
-          if (durStr.includes(':')) {
-            const parts = durStr.split(':')
-            if (parts.length === 2) {
-              durSec = (parseInt(parts[0], 10) || 0) * 60 + (parseInt(parts[1], 10) || 0)
-            } else if (parts.length === 3) {
-              durSec = (parseInt(parts[0], 10) || 0) * 3600 + (parseInt(parts[1], 10) || 0) * 60 + (parseInt(parts[2], 10) || 0)
-            }
+          if (durStr) {
+            durSec = this.parseDuration(durStr)
           }
 
           if (videoId && trackTitle) {

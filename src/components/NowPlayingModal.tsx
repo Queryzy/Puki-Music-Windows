@@ -11,11 +11,14 @@ import {
   Heart,
   Volume2,
   Music2,
-  ListMusic
+  ListMusic,
+  Languages,
+  RotateCw
 } from 'lucide-react'
 import { Track } from '../services/YouTubeMusicService'
 import { AudioPlayerService } from '../services/AudioPlayerService'
 import { LyricsService, LyricsResult } from '../services/LyricsService'
+import { RomajiHelper } from '../services/RomajiHelper'
 
 interface NowPlayingModalProps {
   isOpen: boolean
@@ -39,6 +42,7 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
   const [activeTab, setActiveTab] = useState<'lyrics' | 'queue'>('lyrics')
   const [lyrics, setLyrics] = useState<LyricsResult | null>(null)
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false)
+  const [useRomaji, setUseRomaji] = useState(false)
   const lyricsContainerRef = useRef<HTMLDivElement>(null)
   const activeLineRef = useRef<HTMLDivElement>(null)
 
@@ -47,24 +51,20 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
   const progressPercent = Math.min(100, Math.max(0, (playerState.currentTime / currentDuration) * 100))
   const volumePercent = Math.min(100, Math.max(0, playerState.volume * 100))
 
-  useEffect(() => {
+  const loadLyrics = (force: boolean = false) => {
     if (!track) {
       setLyrics(null)
       return
     }
-
-    let isMounted = true
     setIsLoadingLyrics(true)
-    LyricsService.fetchLyrics(track.id, track.title, track.artist, track.durationSeconds).then((res) => {
-      if (isMounted) {
-        setLyrics(res)
-        setIsLoadingLyrics(false)
-      }
+    LyricsService.fetchLyrics(track.id, track.title, track.artist, track.durationSeconds, force).then((res) => {
+      setLyrics(res)
+      setIsLoadingLyrics(false)
     })
+  }
 
-    return () => {
-      isMounted = false
-    }
+  useEffect(() => {
+    loadLyrics(false)
   }, [track?.id])
 
   // Auto-scroll active lyric line
@@ -233,36 +233,72 @@ export const NowPlayingModal: React.FC<NowPlayingModalProps> = ({
         {/* Kanan: Lyrics / Queue View */}
         <div className="w-1/2 flex flex-col bg-white/[0.02] border border-white/5 rounded-3xl p-6 overflow-hidden">
           {activeTab === 'lyrics' ? (
-            <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto space-y-5 pr-2">
-              {isLoadingLyrics ? (
-                <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm space-y-2">
-                  <Music2 className="w-8 h-8 animate-pulse text-orange-500" />
-                  <span>Mencari lirik lagu sinkron di LRCLIB...</span>
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between pb-3 mb-2 border-b border-white/5">
+                <span className="text-[11px] font-mono text-zinc-400">
+                  {lyrics?.synced ? 'Karaoke Sync (LRCLIB)' : lyrics ? 'Plain Text' : 'Status'}
+                </span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setUseRomaji(!useRomaji)}
+                    title="Alih Aksara CJK ke Romaji Latin"
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold flex items-center space-x-1.5 transition border ${
+                      useRomaji
+                        ? 'bg-orange-500 text-white border-orange-400'
+                        : 'bg-white/5 text-zinc-400 border-white/10 hover:text-white'
+                    }`}
+                  >
+                    <Languages className="w-3.5 h-3.5" />
+                    <span>{useRomaji ? 'ROMAJI: ON' : 'ROMAJI: OFF'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (track) {
+                        LyricsService.clearCache(track.id)
+                        loadLyrics(true)
+                      }
+                    }}
+                    title="Segarkan Ulang Lirik"
+                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/10 transition"
+                  >
+                    <RotateCw className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-              ) : lyrics && lyrics.lines.length > 0 ? (
-                lyrics.lines.map((line, idx) => {
-                  const isActive = idx === activeIndex
-                  return (
-                    <p
-                      key={idx}
-                      ref={isActive ? activeLineRef : null}
-                      onClick={() => line.time && AudioPlayerService.seek(line.time)}
-                      className={`text-lg font-bold transition-all duration-200 cursor-pointer ${
-                        isActive
-                          ? 'text-orange-400 scale-105 origin-left'
-                          : 'text-zinc-500 hover:text-zinc-300'
-                      }`}
-                    >
-                      {line.text}
-                    </p>
-                  )
-                })
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm space-y-2">
-                  <Music2 className="w-8 h-8 text-zinc-600" />
-                  <span>Lirik tidak tersedia untuk lagu ini</span>
-                </div>
-              )}
+              </div>
+
+              <div ref={lyricsContainerRef} className="flex-1 overflow-y-auto space-y-5 pr-2">
+                {isLoadingLyrics ? (
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm space-y-2">
+                    <Music2 className="w-8 h-8 animate-pulse text-orange-500" />
+                    <span>Mencari lirik lagu sinkron di LRCLIB...</span>
+                  </div>
+                ) : lyrics && lyrics.lines.length > 0 ? (
+                  lyrics.lines.map((line, idx) => {
+                    const isActive = idx === activeIndex
+                    const displayText = useRomaji ? RomajiHelper.toRomaji(line.text) : line.text
+                    return (
+                      <p
+                        key={idx}
+                        ref={isActive ? activeLineRef : null}
+                        onClick={() => line.time && AudioPlayerService.seek(line.time)}
+                        className={`text-lg font-medium transition-all duration-200 cursor-pointer ${
+                          isActive
+                            ? 'text-white font-bold text-xl scale-[1.02] origin-left'
+                            : 'text-zinc-600 hover:text-zinc-400'
+                        }`}
+                      >
+                        {displayText}
+                      </p>
+                    )
+                  })
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-zinc-500 text-sm space-y-2">
+                    <Music2 className="w-8 h-8 text-zinc-600" />
+                    <span>Lirik tidak tersedia untuk lagu ini.</span>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto divide-y divide-white/[0.03] pr-2">

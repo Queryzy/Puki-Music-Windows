@@ -15,6 +15,7 @@ interface LibraryViewProps {
   onOpenCreatePlaylist: () => void
   onSelectPlaylist: (pl: Playlist) => void
   formatTime: (secs: number) => string
+  onOpenArtistModal?: (artist: string) => void
 }
 
 export const LibraryView: React.FC<LibraryViewProps> = ({
@@ -28,7 +29,8 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
   onRemoveDownload,
   onOpenCreatePlaylist,
   onSelectPlaylist,
-  formatTime
+  formatTime,
+  onOpenArtistModal
 }) => {
   return (
     <div className="space-y-6">
@@ -105,7 +107,19 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       <p className="font-medium text-sm text-zinc-100 truncate group-hover:text-orange-400 transition">
                         {track.title}
                       </p>
-                      <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+                      <p
+                        onClick={(e) => {
+                          if (onOpenArtistModal && track.artist) {
+                            e.stopPropagation()
+                            onOpenArtistModal(track.artist)
+                          }
+                        }}
+                        className={`text-xs text-zinc-400 truncate ${
+                          onOpenArtistModal ? 'hover:underline hover:text-orange-400 cursor-pointer' : ''
+                        }`}
+                      >
+                        {track.artist}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3 text-zinc-400">
@@ -232,7 +246,19 @@ export const LibraryView: React.FC<LibraryViewProps> = ({
                       <p className="font-medium text-sm text-zinc-100 truncate group-hover:text-orange-400 transition">
                         {track.title}
                       </p>
-                      <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+                      <p
+                        onClick={(e) => {
+                          if (onOpenArtistModal && track.artist) {
+                            e.stopPropagation()
+                            onOpenArtistModal(track.artist)
+                          }
+                        }}
+                        className={`text-xs text-zinc-400 truncate ${
+                          onOpenArtistModal ? 'hover:underline hover:text-orange-400 cursor-pointer' : ''
+                        }`}
+                      >
+                        {track.artist}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3 text-zinc-400">

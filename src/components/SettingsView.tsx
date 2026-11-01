@@ -389,12 +389,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="space-y-4 text-xs divide-y divide-white/[0.03]">
           <div className="pt-2 space-y-1.5">
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-orange-400">v1.0.6</span>
+              <span className="font-bold text-orange-400">v1.0.7</span>
               <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
                 Terbaru
               </span>
             </div>
             <ul className="list-disc list-inside text-zinc-300 space-y-1">
+              <li><strong>Durasi Presisi:</strong> Normalisasi parser durasi titik (misal 3.55) & titik dua InnerTube YouTube Music Indonesia.</li>
+              <li><strong>Fix Artis Album:</strong> Mengambil nama artis asli dari strapline album, menghilangkan teks 'Artis Resmi'.</li>
+              <li><strong>Navigasi Artis Interaktif:</strong> Klik nama musisi di list lagu mana saja untuk membuka diskografi album.</li>
+              <li><strong>Multi-Tier Lyrics & Romaji CJK:</strong> Mesin lirik LRCLIB 1:1 mobile dengan tombol alih aksara Romaji (Kanji/Kana, Hangul, Pinyin) dan tombol refresh lirik.</li>
+              <li><strong>Pembersihan Initial Query:</strong> Menghapus query search default 'Last Child' saat aplikasi pertama kali dibuka.</li>
+            </ul>
+          </div>
+
+          <div className="pt-4 space-y-1.5">
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-zinc-400">v1.0.6</span>
+            </div>
+            <ul className="list-disc list-inside text-zinc-400 space-y-1">
               <li><strong>Deterministic Favorite Parity:</strong> Sorting deterministik <code>likedAt DESC</code> 1:1 identik dengan Android dan iOS.</li>
               <li><strong>Re-Sync Bersih Engine:</strong> Tombol Re-Sync Bersih di Pengaturan yang membangun ulang seluruh data riwayat favorit dari awal relay tanpa meninggalkan cache urutan lama.</li>
             </ul>

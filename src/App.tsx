@@ -21,7 +21,7 @@ export default function App() {
   const [isNowPlayingExpanded, setIsNowPlayingExpanded] = useState(false)
 
   // Search state
-  const [searchQuery, setSearchQuery] = useState('Last Child')
+  const [searchQuery, setSearchQuery] = useState('')
   const [tracks, setTracks] = useState<Track[]>([])
   const [albums, setAlbums] = useState<Album[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -47,7 +47,7 @@ export default function App() {
   // Settings state
   const [syncSettings, setSyncSettings] = useState<SyncSettings>(LocalMusicStore.getSettings())
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(SyncManagerService.getStatus())
-  const [appVersion] = useState('1.0.6')
+  const [appVersion, setAppVersion] = useState('1.0.7')
   const [latestRelease, setLatestRelease] = useState<{ tag: string; downloadUrl: string } | null>(null)
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false)
   const [updateMessage, setUpdateMessage] = useState<string | null>(null)
@@ -85,7 +85,6 @@ export default function App() {
     })
 
     SyncManagerService.start()
-    executeSearch('Last Child')
     loadHomeData()
 
     // Listen electron auto-updater events
@@ -299,6 +298,7 @@ export default function App() {
               isFavorite={(id) => LocalMusicStore.isFavorite(id)}
               isDownloaded={(id) => LocalMusicStore.isDownloaded(id)}
               formatTime={formatTime}
+              onOpenArtistModal={(artist) => setSelectedArtistForModal(artist)}
             />
           )}
 
@@ -316,6 +316,7 @@ export default function App() {
                 setActiveTab('search')
                 executeSearch(artist)
               }}
+              onOpenArtistModal={(artist) => setSelectedArtistForModal(artist)}
             />
           )}
 
@@ -332,6 +333,7 @@ export default function App() {
               onOpenCreatePlaylist={() => setShowCreatePlaylistModal(true)}
               onSelectPlaylist={(pl) => setSelectedPlaylist(pl)}
               formatTime={formatTime}
+              onOpenArtistModal={(artist) => setSelectedArtistForModal(artist)}
             />
           )}
 
@@ -379,7 +381,18 @@ export default function App() {
                     Album Studio Resmi
                   </span>
                   <h3 className="text-lg font-bold text-white truncate mt-1">{selectedAlbum.title}</h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">{selectedAlbum.artist}</p>
+                  <p
+                    onClick={() => {
+                      if (selectedAlbum.artist && selectedAlbum.artist !== 'Artis Resmi') {
+                        setSelectedArtistForModal(selectedAlbum.artist)
+                      }
+                    }}
+                    className={`text-sm text-zinc-400 mt-1 ${
+                      selectedAlbum.artist && selectedAlbum.artist !== 'Artis Resmi' ? 'hover:underline hover:text-orange-400 cursor-pointer' : ''
+                    }`}
+                  >
+                    {selectedAlbum.artist || 'Artis Resmi'}
+                  </p>
                   <p className="text-xs text-zinc-500 mt-2">{albumTracks.length} Lagu Tersedia</p>
                 </div>
                 <button
@@ -406,7 +419,17 @@ export default function App() {
                         </span>
                         <div className="min-w-0 flex-1 pr-4">
                           <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-orange-400">{t.title}</p>
-                          <p className="text-xs text-zinc-400 truncate">{t.artist}</p>
+                          <p
+                            onClick={(e) => {
+                              if (t.artist) {
+                                e.stopPropagation()
+                                setSelectedArtistForModal(t.artist)
+                              }
+                            }}
+                            className="text-xs text-zinc-400 truncate hover:underline hover:text-orange-400 cursor-pointer"
+                          >
+                            {t.artist}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -506,7 +529,17 @@ export default function App() {
                         )}
                         <div className="min-w-0 flex-1 pr-4">
                           <p className="text-sm font-medium text-zinc-100 truncate group-hover:text-orange-400">{t.title}</p>
-                          <p className="text-xs text-zinc-400 truncate">{t.artist}</p>
+                          <p
+                            onClick={(e) => {
+                              if (t.artist) {
+                                e.stopPropagation()
+                                setSelectedArtistForModal(t.artist)
+                              }
+                            }}
+                            className="text-xs text-zinc-400 truncate hover:underline hover:text-orange-400 cursor-pointer"
+                          >
+                            {t.artist}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-3">

@@ -14,6 +14,7 @@ interface SearchViewProps {
   isFavorite: (trackId: string) => boolean
   isDownloaded: (trackId: string) => boolean
   formatTime: (secs: number) => string
+  onOpenArtistModal?: (artist: string) => void
 }
 
 export const SearchView: React.FC<SearchViewProps> = ({
@@ -26,7 +27,8 @@ export const SearchView: React.FC<SearchViewProps> = ({
   onDownloadTrack,
   isFavorite,
   isDownloaded,
-  formatTime
+  formatTime,
+  onOpenArtistModal
 }) => {
   if (isSearching) {
     return (
@@ -67,7 +69,19 @@ export const SearchView: React.FC<SearchViewProps> = ({
                   <p className="font-semibold text-xs text-zinc-100 truncate group-hover:text-orange-400 transition">
                     {album.title}
                   </p>
-                  <p className="text-[10px] text-zinc-400 truncate mt-0.5">{album.artist || 'Artis Resmi'}</p>
+                  <p
+                    onClick={(e) => {
+                      if (onOpenArtistModal && album.artist && album.artist !== 'Artis Resmi') {
+                        e.stopPropagation()
+                        onOpenArtistModal(album.artist)
+                      }
+                    }}
+                    className={`text-[10px] text-zinc-400 truncate mt-0.5 ${
+                      onOpenArtistModal && album.artist && album.artist !== 'Artis Resmi' ? 'hover:underline hover:text-orange-400' : ''
+                    }`}
+                  >
+                    {album.artist || 'Artis Resmi'}
+                  </p>
                 </div>
               </div>
             ))}
@@ -107,7 +121,19 @@ export const SearchView: React.FC<SearchViewProps> = ({
                       {track.title}
                     </p>
                     <div className="flex items-center space-x-2 mt-0.5">
-                      <p className="text-xs text-zinc-400 truncate">{track.artist}</p>
+                      <p
+                        onClick={(e) => {
+                          if (onOpenArtistModal && track.artist) {
+                            e.stopPropagation()
+                            onOpenArtistModal(track.artist)
+                          }
+                        }}
+                        className={`text-xs text-zinc-400 truncate ${
+                          onOpenArtistModal ? 'hover:underline hover:text-orange-400' : ''
+                        }`}
+                      >
+                        {track.artist}
+                      </p>
                       {dl && (
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                           OFFLINE
