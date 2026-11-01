@@ -9,7 +9,9 @@ import {
   Copy,
   Check,
   FileText,
-  Link2
+  Link2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import QRCode from 'qrcode'
 import { SyncSettings } from '../services/LocalMusicStore'
@@ -52,8 +54,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const [pairingInput, setPairingInput] = useState('')
   const [showQrModal, setShowQrModal] = useState(false)
-  const [qrDataUrl, setQrDataUrl] = useState('')
+  const [qrDataUrl, setQrDataUrl] = useState<string>('')
   const [copiedLink, setCopiedLink] = useState(false)
+  const [expandedChangelogVersion, setExpandedChangelogVersion] = useState<string | null>('v1.0.8')
+
+  const toggleChangelog = (ver: string) => {
+    setExpandedChangelogVersion(prev => prev === ver ? null : ver)
+  }
   const [uriParseError, setUriParseError] = useState<string | null>(null)
 
   // Bangun URI Pairing puki://sync
@@ -376,117 +383,128 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </section>
 
-      {/* Changelog Versi */}
+      {/* Changelog Versi (Dropdown Collapsible Parity) */}
       <section className="p-5 rounded-3xl bg-white/[0.02] border border-white/5 space-y-4">
         <div className="flex items-center space-x-2.5">
           <FileText className="w-5 h-5 text-orange-500" />
           <div>
             <h3 className="text-sm font-bold text-zinc-100">Catatan Rilis (Changelog)</h3>
-            <p className="text-xs text-zinc-400">Riwayat pembaruan dan fitur Puki Music Windows Desktop.</p>
+            <p className="text-xs text-zinc-400">Klik versi untuk melihat detail pembaruan.</p>
           </div>
         </div>
 
-        <div className="space-y-4 text-xs divide-y divide-white/[0.03]">
-          <div className="pt-2 space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-orange-400">v1.0.8</span>
-              <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
-                Terbaru
-              </span>
-            </div>
-            <ul className="list-disc list-inside text-zinc-300 space-y-1">
-              <li><strong>Kalibrasi Lirik Presisi:</strong> Stepper offset lirik melayang ([-0.5s ... +0.5s]) yang dapat dibuka/tutup dengan penyimpanan otomatis per lagu.</li>
-              <li><strong>Putar Cepat Album:</strong> Tombol Play instan pada cover album di hasil pencarian untuk langsung mendengarkan album tanpa harus membuka detail.</li>
-              <li><strong>Simpan Album ke Playlist:</strong> Kemampuan menyimpan seluruh trek album menjadi playlist pribadi dengan sinkronisasi E2EE otomatis.</li>
-              <li><strong>Perapihan Antarmuka & Bahasa:</strong> Desain kartu beranda yang lebih ramah pengguna, visual tombol aksi yang proporsional, dan penghapusan istilah teknis robotik.</li>
-            </ul>
+        <div className="space-y-2 text-xs">
+          {/* v1.0.8 */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.01] overflow-hidden transition">
+            <button
+              onClick={() => toggleChangelog('v1.0.8')}
+              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
+            >
+              <div className="flex items-center space-x-2.5">
+                <span className="font-bold text-sm text-orange-400">v1.0.8</span>
+                <span className="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 text-[10px] font-mono">
+                  Terbaru
+                </span>
+                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Kalibrasi Lirik & Album Playlists</span>
+              </div>
+              {expandedChangelogVersion === 'v1.0.8' ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-500" />
+              )}
+            </button>
+            {expandedChangelogVersion === 'v1.0.8' && (
+              <div className="p-3.5 pt-0 border-t border-white/5 mt-1 text-zinc-300">
+                <ul className="list-disc list-inside space-y-1.5 leading-relaxed">
+                  <li><strong>Kalibrasi Lirik Presisi:</strong> Stepper offset lirik melayang ([-0.5s ... +0.5s]) yang dapat dibuka/tutup dengan penyimpanan otomatis per lagu.</li>
+                  <li><strong>Putar Cepat Album:</strong> Tombol Play instan pada cover album di hasil pencarian untuk langsung mendengarkan album tanpa harus membuka detail.</li>
+                  <li><strong>Simpan Album ke Playlist:</strong> Kemampuan menyimpan seluruh trek album menjadi playlist pribadi dengan sinkronisasi E2EE otomatis.</li>
+                  <li><strong>Perapihan Antarmuka & Bahasa:</strong> Desain kartu beranda yang lebih ramah pengguna, visual tombol aksi yang proporsional, dan penghapusan istilah teknis robotik.</li>
+                </ul>
+              </div>
+            )}
           </div>
 
-          <div className="pt-4 space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-zinc-400">v1.0.7</span>
-            </div>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li><strong>Durasi Presisi:</strong> Normalisasi parser durasi titik (misal 3.55) & titik dua InnerTube YouTube Music Indonesia.</li>
-              <li><strong>Fix Artis Album:</strong> Mengambil nama artis asli dari strapline album, menghilangkan teks 'Artis Resmi'.</li>
-              <li><strong>Navigasi Artis Interaktif:</strong> Klik nama musisi di list lagu mana saja untuk membuka diskografi album.</li>
-              <li><strong>Multi-Tier Lyrics & Romaji CJK:</strong> Mesin lirik LRCLIB 1:1 mobile dengan tombol alih aksara Romaji (Kanji/Kana, Hangul, Pinyin) dan tombol refresh lirik.</li>
-              <li><strong>Pembersihan Initial Query:</strong> Menghapus query search default 'Last Child' saat aplikasi pertama kali dibuka.</li>
-            </ul>
+          {/* v1.0.7 */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.01] overflow-hidden transition">
+            <button
+              onClick={() => toggleChangelog('v1.0.7')}
+              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
+            >
+              <div className="flex items-center space-x-2.5">
+                <span className="font-bold text-sm text-zinc-200">v1.0.7</span>
+                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Durasi Presisi & Romaji CJK</span>
+              </div>
+              {expandedChangelogVersion === 'v1.0.7' ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-500" />
+              )}
+            </button>
+            {expandedChangelogVersion === 'v1.0.7' && (
+              <div className="p-3.5 pt-0 border-t border-white/5 mt-1 text-zinc-400">
+                <ul className="list-disc list-inside space-y-1.5 leading-relaxed">
+                  <li><strong>Durasi Presisi:</strong> Normalisasi parser durasi titik (misal 3.55) & titik dua InnerTube YouTube Music Indonesia.</li>
+                  <li><strong>Fix Artis Album:</strong> Mengambil nama artis asli dari strapline album, menghilangkan teks 'Artis Resmi'.</li>
+                  <li><strong>Navigasi Artis Interaktif:</strong> Klik nama musisi di list lagu mana saja untuk membuka diskografi album.</li>
+                  <li><strong>Multi-Tier Lyrics & Romaji CJK:</strong> Mesin lirik LRCLIB 1:1 mobile dengan tombol alih aksara Romaji (Kanji/Kana, Hangul, Pinyin) dan tombol refresh lirik.</li>
+                  <li><strong>Pembersihan Initial Query:</strong> Menghapus query search default 'Last Child' saat aplikasi pertama kali dibuka.</li>
+                </ul>
+              </div>
+            )}
           </div>
 
-          <div className="pt-4 space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-zinc-400">v1.0.6</span>
-            </div>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li><strong>Deterministic Favorite Parity:</strong> Sorting deterministik <code>likedAt DESC</code> 1:1 identik dengan Android dan iOS.</li>
-              <li><strong>Re-Sync Bersih Engine:</strong> Tombol Re-Sync Bersih di Pengaturan yang membangun ulang seluruh data riwayat favorit dari awal relay tanpa meninggalkan cache urutan lama.</li>
-            </ul>
+          {/* v1.0.6 */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.01] overflow-hidden transition">
+            <button
+              onClick={() => toggleChangelog('v1.0.6')}
+              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
+            >
+              <div className="flex items-center space-x-2.5">
+                <span className="font-bold text-sm text-zinc-300">v1.0.6</span>
+                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Re-Sync Bersih & Liked Parity</span>
+              </div>
+              {expandedChangelogVersion === 'v1.0.6' ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-500" />
+              )}
+            </button>
+            {expandedChangelogVersion === 'v1.0.6' && (
+              <div className="p-3.5 pt-0 border-t border-white/5 mt-1 text-zinc-400">
+                <ul className="list-disc list-inside space-y-1.5 leading-relaxed">
+                  <li><strong>Deterministic Favorite Parity:</strong> Sorting deterministik <code>likedAt DESC</code> 1:1 identik dengan Android dan iOS.</li>
+                  <li><strong>Re-Sync Bersih Engine:</strong> Tombol Re-Sync Bersih di Pengaturan yang membangun ulang seluruh data riwayat favorit dari awal relay tanpa meninggalkan cache urutan lama.</li>
+                </ul>
+              </div>
+            )}
           </div>
 
-          <div className="pt-4 space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-zinc-400">v1.0.5</span>
-            </div>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li><strong>Resilient Direct InnerTube Stream Resolver:</strong> Direct audio m4a (itag 140) via InnerTube <code>ANDROID_VR</code> 1:1 mobile dengan auto-match katalog Deezer/non-YT.</li>
-              <li><strong>Artist Discography Modal Sheet:</strong> Akses diskografi lengkap penyanyi (Album Studio dan Lagu Populer) langsung dari PlayerBar dan NowPlaying.</li>
-              <li><strong>Silent Background Auto-Updater:</strong> Pembaruan otomatis via <code>electron-updater</code> lengkap dengan progress bar.</li>
-            </ul>
-          </div>
-
-          <div className="pt-4 space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <span className="font-bold text-zinc-400">v1.0.4</span>
-            </div>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li><strong>OmniSource Deezer Resolver:</strong> Mengurai dan memutar katalog Deezer (<code>dz_...</code>) seperti <em>This Side of Paradise - Coyote Theory</em> secara transparan dengan caching lokal.</li>
-              <li><strong>Behavioral Home Dashboard:</strong> Beranda dinamis dengan carousel artis favorit (affinity analysis), filter chips, dan rekomendasi pintar.</li>
-              <li><strong>Playlist Detail & Quick Play:</strong> Modal interaktif daftar putar pribadi, preview cover art, tombol putar cepat, dan mode acak.</li>
-              <li><strong>FIFO Background Download Queue:</strong> Antrean unduhan audio offline cerdas dengan proteksi concurrency.</li>
-            </ul>
-          </div>
-
-          <div className="pt-3 space-y-1.5">
-            <span className="font-bold text-zinc-400">v1.0.3</span>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li>Full Relay Pagination Loop: menarik seluruh riwayat sync hingga seq terakhir tanpa terpotong batas limit server.</li>
-              <li>Dukungan penuh event <code>TOGGLE_FAVORITE</code>, <code>UPDATE_PLAYLIST</code>, dan <code>RECORD_PLAY</code> 1:1 format Android & iOS.</li>
-              <li>Normalisasi YouTube Music Track ID otomatis dan update reaktif real-time pada Koleksi (Lagu Favorit & Playlist).</li>
-              <li>Bi-directional Sync Outbox: perubahan lokal di Windows ter-push balik ke relay secara otomatis.</li>
-              <li>Indikator status sinkronisasi real-time yang menampilkan jumlah lagu favorit dan playlist tersinkron.</li>
-            </ul>
-          </div>
-
-          <div className="pt-3 space-y-1.5">
-            <span className="font-bold text-zinc-400">v1.0.2</span>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li>Now Playing View layar penuh model YouTube Music dengan ambient glow.</li>
-              <li>Fitur Lirik Lagu sinkron (karaoke auto-scroll & seek klik baris) via LRCLIB.</li>
-              <li>Daftar Putar (Antrean) dengan status lagu dan tombol Repeat / Shuffle.</li>
-              <li>One-Click Pairing URI (<code>puki://sync?...</code>) & QR Code generator pairing.</li>
-              <li>Perbaikan Logo sidebar di Electron dan dynamic slider gradient fill orange.</li>
-              <li>Redesign Collapsed Sidebar simetris tanpa teks bocor.</li>
-            </ul>
-          </div>
-
-          <div className="pt-3 space-y-1.5">
-            <span className="font-bold text-zinc-400">v1.0.1</span>
-            <ul className="list-disc list-inside text-zinc-400 space-y-1">
-              <li>Pemisahan navigasi Beranda, Pencarian, Koleksi & Sync, dan Pengaturan.</li>
-              <li>Offline Audio Storage engine via IndexedDB.</li>
-              <li>Zero-Knowledge E2EE Relay Sync 1:1 Android & iOS.</li>
-              <li>Two-Tier YouTube Music parser lagu vs album studio.</li>
-            </ul>
-          </div>
-
-          <div className="pt-3 space-y-1.5">
-            <span className="font-bold text-zinc-500">v1.0.0</span>
-            <ul className="list-disc list-inside text-zinc-500 space-y-1">
-              <li>Rilis perdana Puki Music Windows Desktop Client via Electron & Vite.</li>
-              <li>Playback engine dasar dan streaming YouTube Music.</li>
-            </ul>
+          {/* v1.0.5 */}
+          <div className="rounded-2xl border border-white/5 bg-white/[0.01] overflow-hidden transition">
+            <button
+              onClick={() => toggleChangelog('v1.0.5')}
+              className="w-full p-3.5 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
+            >
+              <div className="flex items-center space-x-2.5">
+                <span className="font-bold text-sm text-zinc-400">v1.0.5</span>
+                <span className="text-zinc-500 text-[11px] hidden sm:inline">• Direct InnerTube & Discography Sheet</span>
+              </div>
+              {expandedChangelogVersion === 'v1.0.5' ? (
+                <ChevronUp className="w-4 h-4 text-zinc-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-zinc-500" />
+              )}
+            </button>
+            {expandedChangelogVersion === 'v1.0.5' && (
+              <div className="p-3.5 pt-0 border-t border-white/5 mt-1 text-zinc-400">
+                <ul className="list-disc list-inside space-y-1.5 leading-relaxed">
+                  <li><strong>Resilient Direct InnerTube Stream Resolver:</strong> Direct audio m4a (itag 140) via InnerTube <code>ANDROID_VR</code> 1:1 mobile dengan auto-match katalog Deezer/non-YT.</li>
+                  <li><strong>Artist Discography Modal Sheet:</strong> Akses diskografi lengkap penyanyi (Album Studio dan Lagu Populer) langsung dari PlayerBar dan NowPlaying.</li>
+                  <li><strong>Silent Background Auto-Updater:</strong> Pembaruan otomatis via <code>electron-updater</code> lengkap dengan progress bar.</li>
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </section>

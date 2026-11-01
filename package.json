@@ -63,7 +63,7 @@
       "icon": "public/icon.ico"
     },
     "nsis": {
-      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "artifactName": "Puki-Music-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
